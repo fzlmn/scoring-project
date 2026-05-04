@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: scoring-backend
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/scoring_db
+    username: ${DB_USER:scoring_user}
+    password: ${DB_PASS:scoring_pass}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    clean-on-validation-error: true
+    clean-disabled: false
+
+jwt:
+  secret: ${JWT_SECRET:c2NvcmluZy1iYWNrZW5kLXNlY3JldC1rZXktcG91ci1zYWxhZmluLW9ydXMtc2VydmljZXMtMjAyNQ==}
+  expiration: 86400000
+
+ia:
+  service:
+    url: ${IA_SERVICE_URL:http://localhost:8000}
+    enabled: ${IA_SERVICE_ENABLED:false}
+
+server:
+  port: 8080
+
+admin:
+  password: ${ADMIN_PASSWORD:Admin1234!}
+
+logging:
+  level:
+    com.orus.scoringbackend: INFO
+    org.springframework.security: WARN
