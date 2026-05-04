@@ -27,6 +27,13 @@ public class UserController {
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
+    // Bug 4 fix
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMINISTRATEUR')")
+    public ResponseEntity<UserResponse> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(userService.getUser(id));
+    }
+
     @PostMapping
     @PreAuthorize("hasRole('ADMINISTRATEUR')")
     public ResponseEntity<UserResponse> creer(@Valid @RequestBody UserCreateRequest request) {

@@ -27,6 +27,7 @@ public class ClientService {
     private final ScoreRepository scoreRepository;
     private final IaService iaService;
     private final AlerteService alerteService;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public ClientResponse creerClient(ClientRequest request, User createdBy) {
@@ -37,9 +38,14 @@ public class ClientService {
         client.setCreatedBy(createdBy);
         client = clientRepository.save(client);
 
-        // Déclencher le scoring automatique
+        // Scoring automatique
         Score score = iaService.calculerEtSauvegarderScore(client);
-        return mapToResponse(client, null);
+
+        // Audit
+        auditLogService.log(createdBy, "CREATION_CLIENT", "CLIENT", client.getId());
+
+        // Bug 2 fix : passer score au lieu de null
+        return mapToResponse(client, score);
     }
 
     @Transactional
@@ -64,7 +70,28 @@ public class ClientService {
 
         // Recalcul automatique du score
         Score score = iaService.calculerEtSauvegarderScore(client);
-        return mapToResponse(client, null);
+
+        // Audit
+        auditLogService.log(modifiedBy, "MODIFICATION_CLIENT", "CLIENT", client.getId());
+
+        // Bug 2 fix : passer score au lieu de null
+        return mapToResponse(client, score);
+    }
+
+    // Bug 6 : recalcul manuel par le superviseur
+    @Transactional
+    public ClientResponse recalculerScore(Long id, User superviseur) {
+        Client client = clientRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Client introuvable : " + id));
+
+        Score score = iaService.calculerEtSauvegarderScore(client);
+        if (score == null) {
+            throw new BusinessException("Le service IA est désactivé — recalcul impossible");
+        }
+
+        auditLogService.log(superviseur, "RECALCUL_SCORE", "CLIENT", client.getId());
+
+        return mapToResponse(client, score);
     }
 
     public ClientResponse getClient(Long id) {

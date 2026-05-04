@@ -2,11 +2,13 @@ package com.orus.scoringbackend.controllers;
 
 import com.orus.scoringbackend.dto.request.ScoreValidationRequest;
 import com.orus.scoringbackend.dto.response.ScoreResponse;
+import com.orus.scoringbackend.entities.User;
 import com.orus.scoringbackend.services.ScoreService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,10 +32,18 @@ public class ScoreController {
         return ResponseEntity.ok(scoreService.getScoresClient(clientId));
     }
 
+    // Bug 5 fix
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('CHARGE_CLIENTELE','ANALYSTE','SUPERVISEUR')")
+    public ResponseEntity<ScoreResponse> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(scoreService.getScore(id));
+    }
+
     @PatchMapping("/{id}/valider")
     @PreAuthorize("hasRole('SUPERVISEUR')")
     public ResponseEntity<ScoreResponse> valider(@PathVariable Long id,
-                                                 @Valid @RequestBody ScoreValidationRequest request) {
-        return ResponseEntity.ok(scoreService.validerScore(id, request));
+                                                 @Valid @RequestBody ScoreValidationRequest request,
+                                                 @AuthenticationPrincipal User superviseur) {
+        return ResponseEntity.ok(scoreService.validerScore(id, request, superviseur));
     }
 }

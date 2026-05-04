@@ -6,6 +6,8 @@ import com.orus.scoringbackend.entities.Client;
 import com.orus.scoringbackend.entities.Score;
 import com.orus.scoringbackend.entities.Simulation;
 import com.orus.scoringbackend.entities.User;
+import com.orus.scoringbackend.enums.NiveauRisque;
+import com.orus.scoringbackend.exceptions.BusinessException;
 import com.orus.scoringbackend.exceptions.ResourceNotFoundException;
 import com.orus.scoringbackend.repositories.ClientRepository;
 import com.orus.scoringbackend.repositories.ScoreRepository;
@@ -29,18 +31,29 @@ public class SimulationService {
     private final ClientRepository clientRepository;
     private final ScoreRepository scoreRepository;
     private final RestTemplate restTemplate;
+    private final AuditLogService auditLogService;
 
     @Value("${ia.service.url:http://localhost:8000}")
     private String iaServiceUrl;
 
+    // Bug 7 fix : vérifier si IA est activée
+    @Value("${ia.service.enabled:false}")
+    private boolean iaEnabled;
+
     @SuppressWarnings("unchecked")
     public SimulationResponse simuler(SimulationRequest request, User superviseur) {
+        // Bug 7 fix : bloquer la simulation si le service IA est désactivé
+        if (!iaEnabled) {
+            throw new BusinessException(
+                    "Le service IA est désactivé — les simulations ne sont pas disponibles. " +
+                            "Activez ia.service.enabled=true et démarrez le service Python.");
+        }
+
         Client client = clientRepository.findById(request.getClientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Client introuvable"));
 
         Optional<Score> dernierScore = scoreRepository.findTopByClientIdOrderByCreatedAtDesc(client.getId());
 
-        // Appel au service IA avec les données simulées
         double tauxSim = (request.getRevenusSimules() > 0)
                 ? (request.getChargesSimulees() / request.getRevenusSimules()) * 100 : 0;
 
@@ -56,24 +69,21 @@ public class SimulationService {
 
         double scoreSimule;
         String narration;
-        com.orus.scoringbackend.enums.NiveauRisque niveau;
+        NiveauRisque niveau;
 
         try {
             Map<String, Object> result = restTemplate.postForObject(
                     iaServiceUrl + "/predict", payload, Map.class);
             scoreSimule = result != null ? ((Number) result.get("score")).doubleValue() : 50.0;
-            narration = result != null ? (String) result.get("narration") : "Service IA indisponible";
+            narration = result != null ? (String) result.get("narration") : "Réponse vide du service IA";
         } catch (Exception e) {
             log.error("Erreur simulation IA : {}", e.getMessage());
-            scoreSimule = 50.0;
-            narration = "Score simulé en mode dégradé — service IA indisponible.";
+            throw new BusinessException("Erreur lors de l'appel au service IA : " + e.getMessage());
         }
 
-        niveau = scoreSimule <= 30
-                ? com.orus.scoringbackend.enums.NiveauRisque.FAIBLE
-                : scoreSimule <= 60
-                ? com.orus.scoringbackend.enums.NiveauRisque.MOYEN
-                : com.orus.scoringbackend.enums.NiveauRisque.ELEVE;
+        niveau = scoreSimule <= 30 ? NiveauRisque.FAIBLE
+                : scoreSimule <= 60 ? NiveauRisque.MOYEN
+                  : NiveauRisque.ELEVE;
 
         Simulation sim = Simulation.builder()
                 .client(client)
@@ -87,6 +97,9 @@ public class SimulationService {
                 .build();
 
         sim = simulationRepository.save(sim);
+
+        auditLogService.log(superviseur, "SIMULATION", "CLIENT", client.getId());
+
         return mapToResponse(sim, client);
     }
 

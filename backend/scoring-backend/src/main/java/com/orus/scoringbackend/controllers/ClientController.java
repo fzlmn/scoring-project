@@ -47,4 +47,12 @@ public class ClientController {
     public ResponseEntity<List<ClientResponse>> getAllClients() {
         return ResponseEntity.ok(clientService.getAllClients());
     }
+
+    // Bug 6 fix : recalcul manuel par le superviseur
+    @PostMapping("/{id}/recalculer-score")
+    @PreAuthorize("hasRole('SUPERVISEUR')")
+    public ResponseEntity<ClientResponse> recalculerScore(@PathVariable Long id,
+                                                          @AuthenticationPrincipal User superviseur) {
+        return ResponseEntity.ok(clientService.recalculerScore(id, superviseur));
+    }
 }

@@ -4,6 +4,7 @@ import com.orus.scoringbackend.dto.request.ScoreValidationRequest;
 import com.orus.scoringbackend.dto.response.ExplicationResponse;
 import com.orus.scoringbackend.dto.response.ScoreResponse;
 import com.orus.scoringbackend.entities.Score;
+import com.orus.scoringbackend.entities.User;
 import com.orus.scoringbackend.enums.StatutScore;
 import com.orus.scoringbackend.exceptions.BusinessException;
 import com.orus.scoringbackend.exceptions.ResourceNotFoundException;
@@ -20,6 +21,7 @@ public class ScoreService {
 
     private final ScoreRepository scoreRepository;
     private final AlerteService alerteService;
+    private final AuditLogService auditLogService;
 
     public List<ScoreResponse> getScoresEnAttente() {
         return scoreRepository.findByStatutOrderByCreatedAtDesc(StatutScore.EN_ATTENTE)
@@ -31,8 +33,15 @@ public class ScoreService {
                 .stream().map(ScoreService::mapToResponse).toList();
     }
 
+    // Bug 5 : endpoint individuel
+    public ScoreResponse getScore(Long id) {
+        Score score = scoreRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Score introuvable : " + id));
+        return mapToResponse(score);
+    }
+
     @Transactional
-    public ScoreResponse validerScore(Long scoreId, ScoreValidationRequest request) {
+    public ScoreResponse validerScore(Long scoreId, ScoreValidationRequest request, User superviseur) {
         Score score = scoreRepository.findById(scoreId)
                 .orElseThrow(() -> new ResourceNotFoundException("Score introuvable : " + scoreId));
 
@@ -50,19 +59,23 @@ public class ScoreService {
             alerteService.verifierEtGenererAlertes(score);
         }
 
+        // Audit
+        String action = request.getStatut() == StatutScore.VALIDE ? "VALIDATION_SCORE" : "REJET_SCORE";
+        auditLogService.log(superviseur, action, "SCORE", scoreId);
+
         return mapToResponse(score);
     }
 
     public static ScoreResponse mapToResponse(Score s) {
         List<ExplicationResponse> explications = s.getExplications() == null ? List.of() :
                 s.getExplications().stream()
-                        .map(e -> ExplicationResponse.builder()
-                                .featureName(e.getFeatureName())
-                                .shapValue(e.getShapValue())
-                                .direction(e.isDirection())
-                                .ordreImportance(e.getOrdreImportance())
-                                .build())
-                        .toList();
+                .map(e -> ExplicationResponse.builder()
+                          .featureName(e.getFeatureName())
+                          .shapValue(e.getShapValue())
+                          .direction(e.isDirection())
+                          .ordreImportance(e.getOrdreImportance())
+                          .build())
+                .toList();
 
         return ScoreResponse.builder()
                 .id(s.getId())

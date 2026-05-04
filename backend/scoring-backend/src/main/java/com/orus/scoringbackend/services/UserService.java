@@ -21,9 +21,16 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll().stream().map(this::mapToResponse).toList();
+    }
+
+    // Bug 4 fix
+    public UserResponse getUser(Long id) {
+        return mapToResponse(userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable : " + id)));
     }
 
     @Transactional
@@ -39,7 +46,9 @@ public class UserService {
                 .role(request.getRole())
                 .actif(true)
                 .build();
-        return mapToResponse(userRepository.save(user));
+        user = userRepository.save(user);
+        auditLogService.log(null, "CREATION_UTILISATEUR", "USER", user.getId());
+        return mapToResponse(user);
     }
 
     @Transactional
@@ -55,7 +64,9 @@ public class UserService {
         user.setEmail(request.getEmail());
         user.setRole(request.getRole());
         user.setActif(request.isActif());
-        return mapToResponse(userRepository.save(user));
+        user = userRepository.save(user);
+        auditLogService.log(null, "MODIFICATION_UTILISATEUR", "USER", id);
+        return mapToResponse(user);
     }
 
     @Transactional
@@ -64,6 +75,7 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable : " + id));
         user.setActif(false);
         userRepository.save(user);
+        auditLogService.log(null, "DESACTIVATION_UTILISATEUR", "USER", id);
     }
 
     @Transactional
@@ -72,6 +84,7 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable : " + id));
         user.setActif(true);
         userRepository.save(user);
+        auditLogService.log(null, "ACTIVATION_UTILISATEUR", "USER", id);
     }
 
     @Transactional
@@ -81,6 +94,7 @@ public class UserService {
         String newPassword = UUID.randomUUID().toString().substring(0, 10);
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+        auditLogService.log(null, "REINITIALISATION_MOT_DE_PASSE", "USER", id);
         return newPassword;
     }
 

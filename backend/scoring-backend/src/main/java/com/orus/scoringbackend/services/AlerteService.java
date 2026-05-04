@@ -28,7 +28,7 @@ public class AlerteService {
                     .client(score.getClient())
                     .score(score)
                     .typeAlerte(TypeAlerte.SCORE_ELEVE)
-                    .criticite(score.getValeurScore() > 80 ? Criticite.CRITIQUE : Criticite.MOYENNE)
+                    .criticite(score.getValeurScore() > 80 ? Criticite.ELEVEE : Criticite.MOYENNE)
                     .statut(StatutAlerte.NON_LUE)
                     .description("Le client " + score.getClient().getPrenom() + " " +
                             score.getClient().getNom() + " a un score de risque élevé : " +
@@ -44,7 +44,7 @@ public class AlerteService {
                     .client(score.getClient())
                     .score(score)
                     .typeAlerte(TypeAlerte.DONNEES_INCOHERENTES)
-                    .criticite(Criticite.CRITIQUE)
+                    .criticite(Criticite.ELEVEE)
                     .statut(StatutAlerte.NON_LUE)
                     .description("Taux d'endettement incohérent : " +
                             String.format("%.1f", taux) + "% (supérieur à 100%)")
