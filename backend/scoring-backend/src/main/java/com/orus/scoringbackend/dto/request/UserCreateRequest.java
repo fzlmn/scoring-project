@@ -16,7 +16,7 @@ public class UserCreateRequest {
     @NotBlank @Email
     private String email;
 
-    @NotBlank @Size(min = 8, message = "Le mot de passe doit contenir au moins 8 caractères")
+    @Size(min = 8, message = "Le mot de passe doit contenir au moins 8 caractères")
     private String password;
 
     @NotNull

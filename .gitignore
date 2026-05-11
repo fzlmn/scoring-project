@@ -1,0 +1,42 @@
+# Root-level ignore rules for the full repository
+
+# Node and frontend build artifacts
+/node_modules
+/dist
+/out-tsc
+/.angular/cache
+
+# Java build artifacts
+/target
+**/target/
+**/build/
+
+# IDEs and editors
+/.idea
+*.iml
+*.iws
+*.ipr
+/.project
+/.classpath
+/.settings
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Local environment and secrets
+.env
+.env.*
+application-prod.yaml
+application-prod.yml
+application-secret.yaml
+application-secret.yml
+
+# Misc
+npm-debug.log
+yarn-error.log
