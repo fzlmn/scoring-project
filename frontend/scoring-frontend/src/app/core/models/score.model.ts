@@ -1,9 +1,9 @@
 export interface Score {
   id?: string;
   clientId: string;
-  valeur: number;
+  valeurScore: number;
   statut: 'EN_ATTENTE' | 'VALIDE' | 'REJETE';
-  narratif?: string;
+  narration?: string;
   facteurs?: SHAPFactor[];
   niveauRisque: 'FAIBLE' | 'MOYEN' | 'ELEVE';
   dateCalcul?: string;

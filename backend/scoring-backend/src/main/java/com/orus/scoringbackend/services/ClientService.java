@@ -137,8 +137,7 @@ public class ClientService {
                 .tauxEndettement(c.getTauxEndettement())
                 .historiqueFinancier(c.getHistoriqueFinancier())
                 .createdAt(c.getCreatedAt())
-                .dernierScore(s != null && s.getStatut() == StatutScore.VALIDE
-                        ? ScoreService.mapToResponse(s) : null)
+                .dernierScore(s != null ? ScoreService.mapToResponse(s) : null)
                 .build();
     }
 }

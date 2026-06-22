@@ -28,7 +28,7 @@ import { Simulation } from '../../core/models/simulation.model';
                 <h3>Détail du Score</h3>
 
                 <div class="gauge-section">
-                  <app-score-gauge [score]="selectedScore.valeur"></app-score-gauge>
+                  <app-score-gauge [score]="selectedScore.valeurScore"></app-score-gauge>
                 </div>
 
                 <div class="score-info">
@@ -53,7 +53,7 @@ import { Simulation } from '../../core/models/simulation.model';
 
                 <div class="narrative">
                   <h4>Narration IA</h4>
-                  <p>{{ selectedScore.narratif }}</p>
+                  <p>{{ selectedScore.narration }}</p>
                 </div>
 
                 <div class="shap-factors">
@@ -96,7 +96,7 @@ import { Simulation } from '../../core/models/simulation.model';
                   class="queue-item"
                 >
                   <div class="queue-header">
-                    <span class="score-value">{{ score.valeur }}/100</span>
+                    <span class="score-value">{{ score.valeurScore }}/100</span>
                     <span class="queue-date">{{ score.dateCalcul | date:'short' }}</span>
                   </div>
                   <div class="queue-risk">

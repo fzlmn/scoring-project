@@ -24,8 +24,7 @@ public class IaService {
     @Value("${ia.service.url:http://localhost:8000}")
     private String iaServiceUrl;
 
-    @Value("${ia.service.enabled:false}")
-    private boolean iaEnabled;
+    private final boolean iaEnabled = true;
 
     public Score calculerEtSauvegarderScore(Client client) {
         if (!iaEnabled) {
@@ -36,15 +35,31 @@ public class IaService {
         try {
             int age = java.time.Period.between(client.getDateNaissance(),
                     java.time.LocalDate.now()).getYears();
-            double tauxEndettement = client.getTauxEndettement() != null ? client.getTauxEndettement() : 0;
+            double tauxEndettement = client.getTauxEndettement() != null ? client.getTauxEndettement() : 0.0;
+
+            // ── PREPROCESSING LOCAL POUR ALIGNEMENT FASTAPI ──
+            double historiqueNum = 1.0; // Valeur par défaut : MOYEN
+            if (client.getHistoriqueFinancier() != null) {
+                switch (client.getHistoriqueFinancier()) {
+                    case BON -> historiqueNum = 0.0;
+                    case MOYEN -> historiqueNum = 1.0;
+                    case MAUVAIS -> historiqueNum = 2.0;
+                }
+            }
+
+            String situationProValue = "salarie";
+            if (client.getSituationPro() != null) {
+                situationProValue = client.getSituationPro().name().toLowerCase();
+            }
+            // ─────────────────────────────────────────────────
 
             Map<String, Object> payload = Map.of(
+                    "age", age,
+                    "situation_pro", situationProValue,
+                    "historique_financier", historiqueNum,
                     "revenus_mensuels", client.getRevenusMensuels(),
                     "charges_mensuelles", client.getChargesMensuelles(),
                     "taux_endettement", tauxEndettement,
-                    "historique_financier", client.getHistoriqueFinancier().name(),
-                    "situation_pro", client.getSituationPro().name(),
-                    "age", age,
                     "montant_demande", 0.0
             );
 

@@ -59,8 +59,8 @@ import { Score } from '../../core/models/score.model';
 
               <div class="detail-row">
                 <span class="label">Score Client</span>
-                <span class="value" [style.color]="getScoreColor(client?.dernierScore?.valeur || 0)">
-                  <strong>{{ client?.dernierScore?.valeur || 'N/A' }}/100</strong>
+                <span class="value" [style.color]="getScoreColor(client?.dernierScore?.valeurScore || 0)">
+                  <strong>{{ client?.dernierScore?.valeurScore || 'N/A' }}/100</strong>
                 </span>
               </div>
               <div class="detail-row">

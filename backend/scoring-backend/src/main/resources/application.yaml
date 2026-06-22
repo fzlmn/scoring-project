@@ -27,7 +27,7 @@ jwt:
 ia:
   service:
     url: ${IA_SERVICE_URL:http://localhost:8000}
-    enabled: ${IA_SERVICE_ENABLED:false}
+    enabled: ${IA_SERVICE_ENABLED:true}
 
 server:
   port: 8080

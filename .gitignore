@@ -1,35 +1,35 @@
-# Root-level ignore rules for the full repository
+# ==========================================
+# Configuration Gitignore - Projet Scoring PFE
+# ==========================================
 
-# Node and frontend build artifacts
-/node_modules
-/dist
-/out-tsc
-/.angular/cache
+# --- Front-end Angular ---
+/node_modules/
+/dist/
+/out-tsc/
+/.angular/cache/
+frontend/package-lock.json
 
-# Java build artifacts
-/target
+# --- Back-end Java Spring Boot ---
+/target/
 **/target/
 **/build/
+*.class
 
-# IDEs and editors
-/.idea
+# --- IDEs et Éditeurs de code ---
+/.idea/
 *.iml
 *.iws
 *.ipr
 /.project
 /.classpath
-/.settings
+/.settings/
 .vscode/
 
-# OS files
+# --- Système d'exploitation ---
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-logs/
-
-# Local environment and secrets
+# --- Fichiers d'environnement et secrets ---
 .env
 .env.*
 application-prod.yaml
@@ -37,6 +37,24 @@ application-prod.yml
 application-secret.yaml
 application-secret.yml
 
-# Misc
+# --- Logs ---
+*.log
+logs/
 npm-debug.log
 yarn-error.log
+
+# --- Python & Machine Learning (ml-service) ---
+**/__pycache__/
+*.py[cod]
+*$py.class
+ml-service/venv/
+ml-service/.venv/
+env/
+.ipynb_checkpoints/
+
+# --- BLOCAGE DES FICHIERS DE DONNÉES ET MODÈLES LOURDS 🚨 ---
+ml-service/data/
+ml-service/models/*.pkl
+ml-service/models/*.csv
+*.pkl
+*.csv

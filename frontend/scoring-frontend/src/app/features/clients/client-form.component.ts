@@ -61,11 +61,10 @@ import { Client } from '../../core/models/client.model';
                 <label>Situation Professionnelle</label>
                 <select formControlName="situationPro" class="form-input">
                   <option value="">-- Sélectionner --</option>
-                  <option value="Salarié">Salarié</option>
-                  <option value="Indépendant">Indépendant</option>
-                  <option value="Entrepreneur">Entrepreneur</option>
-                  <option value="Retraité">Retraité</option>
-                  <option value="Chômeur">Chômeur</option>
+                  <option value="CDI">Salarié (CDI)</option>
+                  <option value="CDD">Salarié (CDD)</option>
+                  <option value="INDEPENDANT">Indépendant</option>
+                  <option value="SANS_EMPLOI">Sans emploi</option>
                 </select>
                 <span *ngIf="clientForm.get('situationPro')?.hasError('required') && clientForm.get('situationPro')?.touched" class="error">
                   La situation professionnelle est requise
@@ -100,7 +99,12 @@ import { Client } from '../../core/models/client.model';
 
             <div class="form-group">
               <label>Historique Financier</label>
-              <textarea formControlName="historiqueFinancier" class="form-textarea" rows="4"></textarea>
+              <select formControlName="historiqueFinancier" class="form-input">
+                  <option value="">-- Sélectionner --</option>
+                  <option value="BON">Bon</option>
+                  <option value="MOYEN">Moyen</option>
+                  <option value="MAUVAIS">Mauvais</option>
+              </select>            
             </div>
 
             <div class="info-box">
