@@ -4,6 +4,7 @@ import com.orus.scoringbackend.enums.NiveauRisque;
 import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Data @Builder
 public class SimulationResponse {
@@ -17,5 +18,7 @@ public class SimulationResponse {
     private Double scoreReel;
     private NiveauRisque niveauRisqueSimule;
     private String narrationSimulee;
+    /** Instantané des paramètres effectivement simulés (what-if complet). */
+    private Map<String, Object> parametresSimules;
     private LocalDateTime createdAt;
 }

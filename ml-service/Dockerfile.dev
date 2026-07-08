@@ -1,0 +1,20 @@
+# syntax=docker/dockerfile:1
+# Development image for the FastAPI ML service.
+# Source (main.py, src/, models/) is bind-mounted at runtime; the (heavy) scientific
+# dependencies are installed into the image.
+FROM python:3.11-slim
+WORKDIR /app
+
+# libgomp1 is the OpenMP runtime required by xgboost at import time.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# BuildKit cache mount keeps the pip download cache warm across rebuilds; the packages
+# themselves bake into the image. Cached until requirements.txt changes.
+COPY requirements.txt .
+RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
+
+EXPOSE 8000
+# --reload watches the mounted source (polling forced via WATCHFILES_FORCE_POLLING in compose).
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -1,0 +1,13 @@
+# syntax=docker/dockerfile:1
+# Development image for the Spring Boot backend — simplest reliable setup.
+# Provides JDK 21 + Maven. Source, pom.xml and the Maven repo are mounted at runtime
+# (see docker-compose.yml); nothing is copied/compiled at build time, so the runtime
+# `maven_repo` named volume caches dependencies (persists across rebuilds and restarts).
+#
+# The app runs via `mvn spring-boot:run` with spring-boot-devtools on the classpath.
+# DevTools hot-restarts the context when target/classes changes. (See the hot-reload
+# limitation for Java documented in DOCKER.md.)
+FROM maven:3.9-eclipse-temurin-21
+WORKDIR /app
+EXPOSE 8080
+CMD ["mvn", "spring-boot:run"]

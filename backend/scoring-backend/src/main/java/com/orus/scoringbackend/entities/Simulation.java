@@ -45,6 +45,10 @@ public class Simulation {
     @Column(name = "narration_simulee", columnDefinition = "TEXT")
     private String narrationSimulee;
 
+    /** Instantané JSON des paramètres effectivement simulés (what-if complet). */
+    @Column(name = "parametres_simules", columnDefinition = "TEXT")
+    private String parametresSimules;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

@@ -1,0 +1,16 @@
+# syntax=docker/dockerfile:1
+# Development image for the Angular 17 frontend.
+# `ng serve` (Angular 17 `application` builder -> Vite-based dev server) provides HMR/live-reload.
+# Source is bind-mounted at runtime; node_modules stays inside the container (see docker-compose.yml).
+FROM node:20
+WORKDIR /app
+
+# Install deps into the image (Linux-built node_modules). BuildKit cache mount keeps the
+# npm store warm across rebuilds. Cached until package-lock.json changes.
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci
+
+EXPOSE 4200
+# --host 0.0.0.0 : reachable from the host
+# --poll 2000    : filesystem polling — required for file-watching across a Windows/Docker bind mount
+CMD ["npm", "run", "start", "--", "--host", "0.0.0.0", "--port", "4200", "--poll", "2000"]

@@ -1,0 +1,6 @@
+# Keep the build context small. Source/target are mounted or built inside the container.
+target/
+.idea/
+.git/
+*.stackdump
+HELP.md

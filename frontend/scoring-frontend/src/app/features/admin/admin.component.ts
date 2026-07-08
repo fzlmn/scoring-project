@@ -2,18 +2,15 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { SidebarComponent } from '../../shared/components/sidebar.component';
-import { TopbarComponent } from '../../shared/components/topbar.component';
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule, RouterModule, SidebarComponent, TopbarComponent],
+  imports: [CommonModule, RouterModule, SidebarComponent],
   template: `
     <div class="layout">
       <app-sidebar></app-sidebar>
-      <div class="main-content">
-        <app-topbar></app-topbar>
-        <div class="content">
+      <div class="main-content">        <div class="content">
           <h2>Administration</h2>
           <div class="admin-menu">
             <a routerLink="/admin/utilisateurs" class="admin-card">
@@ -44,7 +41,7 @@ import { TopbarComponent } from '../../shared/components/topbar.component';
 
     .main-content {
       flex: 1;
-      margin-left: 280px;
+      margin-left: var(--sidebar-width);
     }
 
     .content {

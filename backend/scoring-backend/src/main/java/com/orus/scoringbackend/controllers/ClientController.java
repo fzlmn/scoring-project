@@ -3,10 +3,14 @@ package com.orus.scoringbackend.controllers;
 import com.orus.scoringbackend.dto.request.ClientRequest;
 import com.orus.scoringbackend.dto.response.ClientResponse;
 import com.orus.scoringbackend.entities.User;
+import com.orus.scoringbackend.enums.Role;
 import com.orus.scoringbackend.services.ClientService;
+import com.orus.scoringbackend.services.ExcelExportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,6 +24,7 @@ import java.util.List;
 public class ClientController {
 
     private final ClientService clientService;
+    private final ExcelExportService excelExportService;
 
     @PostMapping
     @PreAuthorize("hasRole('CHARGE_CLIENTELE')")
@@ -54,5 +59,49 @@ public class ClientController {
     public ResponseEntity<ClientResponse> recalculerScore(@PathVariable Long id,
                                                           @AuthenticationPrincipal User superviseur) {
         return ResponseEntity.ok(clientService.recalculerScore(id, superviseur));
+    }
+
+    // Export Excel (.xlsx) de la fiche client
+    @GetMapping("/{id}/export")
+    @PreAuthorize("hasAnyRole('CHARGE_CLIENTELE','ANALYSTE','SUPERVISEUR')")
+    public ResponseEntity<byte[]> exportExcel(@PathVariable Long id) {
+        byte[] xlsx = excelExportService.exportClient(id);
+        String filename = "client_" + id + ".xlsx";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(xlsx);
+    }
+
+    // Export Excel (.xlsx) de la liste des clients (avec filtres nom/CIN optionnels)
+    @GetMapping("/export")
+    @PreAuthorize("hasAnyRole('CHARGE_CLIENTELE','ANALYSTE','SUPERVISEUR')")
+    public ResponseEntity<byte[]> exportClients(@RequestParam(required = false) String searchNom,
+                                                @RequestParam(required = false) String searchCin,
+                                                @AuthenticationPrincipal User user) {
+        List<ClientResponse> clients = clientService.getAllClients();
+
+        String nom = searchNom != null ? searchNom.trim().toLowerCase() : "";
+        String cin = searchCin != null ? searchCin.trim() : "";
+        if (!nom.isEmpty() || !cin.isEmpty()) {
+            clients = clients.stream()
+                    .filter(c -> nom.isEmpty()
+                            || (c.getPrenom() + " " + c.getNom()).toLowerCase().contains(nom))
+                    .filter(c -> cin.isEmpty()
+                            || (c.getCin() != null && c.getCin().contains(cin)))
+                    .toList();
+        }
+
+        // Le score numérique n'est visible par le superviseur que pour tous les statuts ;
+        // les autres rôles ne voient que les scores VALIDÉS (cohérent avec la liste à l'écran).
+        boolean masquer = user.getRole() != Role.SUPERVISEUR;
+        byte[] xlsx = excelExportService.exportClients(clients, masquer);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"clients.xlsx\"")
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(xlsx);
     }
 }

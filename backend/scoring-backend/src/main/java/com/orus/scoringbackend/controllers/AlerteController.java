@@ -10,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/alertes")
@@ -19,15 +20,28 @@ public class AlerteController {
     private final AlerteService alerteService;
 
     @GetMapping
-    @PreAuthorize("hasRole('SUPERVISEUR')")
+    @PreAuthorize("hasAnyRole('SUPERVISEUR','ADMINISTRATEUR')")
     public ResponseEntity<List<AlerteResponse>> getAll() {
         return ResponseEntity.ok(alerteService.getAllAlertes());
     }
 
     @GetMapping("/non-lues")
-    @PreAuthorize("hasRole('SUPERVISEUR')")
+    @PreAuthorize("hasAnyRole('SUPERVISEUR','ADMINISTRATEUR')")
     public ResponseEntity<List<AlerteResponse>> getNonLues() {
         return ResponseEntity.ok(alerteService.getAlertesNonLues());
+    }
+
+    @GetMapping("/summary")
+    @PreAuthorize("hasAnyRole('SUPERVISEUR','ADMINISTRATEUR')")
+    public ResponseEntity<Map<String, Long>> getSummary() {
+        return ResponseEntity.ok(alerteService.getSummary());
+    }
+
+    @PostMapping("/regenerer")
+    @PreAuthorize("hasAnyRole('SUPERVISEUR','ADMINISTRATEUR')")
+    public ResponseEntity<Map<String, Object>> regenerer() {
+        int n = alerteService.regenererPourTousLesClients();
+        return ResponseEntity.ok(Map.of("clientsTraites", n));
     }
 
     @PatchMapping("/{id}/statut")

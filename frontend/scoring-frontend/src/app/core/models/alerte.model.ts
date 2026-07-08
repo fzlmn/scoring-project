@@ -1,12 +1,13 @@
 export interface Alerte {
-  id?: string;
-  clientId: string;
-  type: string;
+  id?: number;
+  clientId?: number;
+  clientNomComplet?: string;
+  scoreId?: number;
+  typeAlerte: string;
   description: string;
-  criticite: 'FAIBLE' | 'MOYEN' | 'ELEVE' | 'CRITIQUE';
+  criticite: 'FAIBLE' | 'MOYENNE' | 'ELEVEE' | 'CRITIQUE';
   statut: 'NON_LUE' | 'LUE' | 'TRAITEE';
-  dateCreation?: string;
-  dateTraitement?: string;
+  createdAt?: string;
 }
 
 export interface AlerteSummary {

@@ -18,5 +18,6 @@ public class ScoreResponse {
     private String narration;
     private String versionModele;
     private LocalDateTime createdAt;
+    private LocalDateTime decidedAt;
     private List<ExplicationResponse> explications;
 }

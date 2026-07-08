@@ -1,237 +1,133 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { IconComponent } from '../../shared/components/ui/icon.component';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, IconComponent],
   template: `
-    <div class="login-container">
-      <div class="login-left"></div>
-      <div class="login-right">
-        <div class="login-box">
-          <div class="login-header">
-            <h1 class="logo-text">ORUS Scoring</h1>
-            <p class="subtitle">Système de notation et d'analyse de crédit</p>
-          </div>
-
-          <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
-            <div class="form-group">
-              <label for="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                formControlName="email"
-                placeholder="votre&#64;email.com"
-                class="form-input"
-              />
-              <span *ngIf="loginForm.get('email')?.hasError('required') && loginForm.get('email')?.touched" class="error">
-                L'email est requis
-              </span>
-            </div>
-
-            <div class="form-group">
-              <label for="password">Mot de passe</label>
-              <input
-                id="password"
-                type="password"
-                formControlName="password"
-                placeholder="••••••••"
-                class="form-input"
-              />
-              <span *ngIf="loginForm.get('password')?.hasError('required') && loginForm.get('password')?.touched" class="error">
-                Le mot de passe est requis
-              </span>
-            </div>
-
-            <button
-              type="submit"
-              [disabled]="!loginForm.valid || isLoading"
-              class="btn-login"
-            >
-              {{ isLoading ? 'Connexion...' : 'Se connecter' }}
-            </button>
-          </form>
-
-          <div *ngIf="errorMessage" class="error-message">
-            {{ errorMessage }}
-          </div>
-
-          <div class="demo-credentials">
-            <p><strong>Comptes de démonstration :</strong></p>
-            <ul>
-              <li><strong>Chargé :</strong> charge / e93def0d-7</li>
-              <li><strong>Analyste :</strong> analyste / Youssef1234!</li>
-              <li><strong>Superviseur :</strong> superviseur / Kaoutar1234!</li>
-              <li><strong>Admin :</strong> admin / Admin1234!</li>
-            </ul>
+    <div class="login">
+      <!-- ── Panneau de marque ── -->
+      <aside class="brand-panel">
+        <div class="brand-inner">
+          <div class="brand-logo">ORUS<span>Scoring</span></div>
+          <h1 class="brand-headline">Notation &amp; analyse de crédit</h1>
+          <p class="brand-sub">
+            Plateforme interne d'évaluation du risque client — scoring assisté par
+            intelligence artificielle, validation et pilotage.
+          </p>
+          <ul class="brand-points">
+            <li><app-icon name="bolt" [size]="18"></app-icon> Scoring automatique &amp; explicable</li>
+            <li><app-icon name="verified_user" [size]="18"></app-icon> Validation supervisée</li>
+            <li><app-icon name="insights" [size]="18"></app-icon> Tableaux de bord par rôle</li>
+          </ul>
+          <div class="brand-by">
+            propulsé par
+            <img *ngIf="!logoFailed" src="assets/salafin-logo.svg" alt="Salafin" class="salafin-logo" (error)="logoFailed = true" />
+            <span *ngIf="logoFailed" class="salafin-word">Salafin</span>
           </div>
         </div>
-      </div>
+      </aside>
+
+      <!-- ── Formulaire ── -->
+      <main class="form-panel">
+        <div class="form-card">
+          <div class="form-head">
+            <h2>Connexion</h2>
+            <p>Accédez à votre espace de travail.</p>
+          </div>
+
+          <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" autocomplete="on">
+            <div class="field">
+              <label for="email">Email</label>
+              <div class="input-wrap">
+                <app-icon class="lead" name="mail" [size]="18"></app-icon>
+                <input id="email" type="email" formControlName="email" placeholder="prenom.nom@orus.ma" autocomplete="username" />
+              </div>
+              <span *ngIf="showError('email','required')" class="err">L'email est requis</span>
+              <span *ngIf="showError('email','email')" class="err">Format d'email invalide</span>
+            </div>
+
+            <div class="field">
+              <label for="password">Mot de passe</label>
+              <div class="input-wrap">
+                <app-icon class="lead" name="lock" [size]="18"></app-icon>
+                <input id="password" [type]="showPassword ? 'text' : 'password'" formControlName="password"
+                       placeholder="••••••••" autocomplete="current-password" />
+                <button type="button" class="toggle" (click)="showPassword = !showPassword"
+                        [attr.aria-label]="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+                        tabindex="-1">
+                  <app-icon [name]="showPassword ? 'visibility_off' : 'visibility'" [size]="18"></app-icon>
+                </button>
+              </div>
+              <span *ngIf="showError('password','required')" class="err">Le mot de passe est requis</span>
+            </div>
+
+            <button type="submit" class="btn-login" [disabled]="!loginForm.valid || isLoading">
+              <app-icon *ngIf="isLoading" class="spin" name="progress_activity" [size]="18"></app-icon>
+              {{ isLoading ? 'Connexion…' : 'Se connecter' }}
+            </button>
+
+            <div *ngIf="errorMessage" class="alert-err">
+              <app-icon name="error" [size]="18"></app-icon><span>{{ errorMessage }}</span>
+            </div>
+          </form>
+
+          <p class="foot">© {{ year }} ORUS Services · Usage interne</p>
+        </div>
+      </main>
     </div>
   `,
   styles: [`
-    .login-container {
-      display: flex;
-      height: 100vh;
-      background: white;
-    }
+    .login { display: grid; grid-template-columns: 1.05fr 0.95fr; min-height: 100vh; background: var(--surface); }
 
-    .login-left {
-      flex: 1;
-      background: linear-gradient(135deg, #1A1A2E 0%, #16213E 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+    /* Brand panel */
+    .brand-panel { position: relative; background: linear-gradient(150deg, #1A1A2E 0%, #23233f 55%, #2b1c30 100%); color: #fff; display: flex; align-items: center; overflow: hidden; }
+    .brand-panel::after { content: ''; position: absolute; width: 420px; height: 420px; right: -120px; top: -120px; background: radial-gradient(circle, rgba(232,98,26,0.28), transparent 62%); }
+    .brand-inner { position: relative; padding: 64px 60px; max-width: 520px; }
+    .brand-logo { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: -0.5px; }
+    .brand-logo span { color: var(--sal-orange); margin-left: 3px; }
+    .brand-headline { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 30px; line-height: 1.2; margin: 40px 0 16px; }
+    .brand-sub { font-family: 'DM Sans', sans-serif; font-size: 15px; line-height: 1.65; color: #B9B9CE; margin: 0 0 32px; }
+    .brand-points { list-style: none; padding: 0; margin: 0 0 44px; display: flex; flex-direction: column; gap: 14px; }
+    .brand-points li { display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #E4E4F0; }
+    .brand-points app-icon { color: var(--sal-orange); }
+    .brand-by { display: inline-flex; align-items: center; gap: 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: #7A7A96; }
+    .salafin-logo { height: 18px; width: auto; }
+    .salafin-word { font-weight: 700; color: #B9B9CE; letter-spacing: 0.3px; }
 
-    .login-right {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 40px;
-      background: #F5F5F7;
-    }
+    /* Form panel */
+    .form-panel { display: flex; align-items: center; justify-content: center; padding: 40px; background: var(--bg); }
+    .form-card { width: 100%; max-width: 400px; }
+    .form-head h2 { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 26px; color: var(--ink-900); margin: 0 0 6px; }
+    .form-head p { font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--ink-500); margin: 0 0 30px; }
 
-    .login-box {
-      width: 100%;
-      max-width: 400px;
-      background: white;
-      padding: 40px;
-      border-radius: 12px;
-      border: 1px solid #E5E5EA;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
+    .field { margin-bottom: 20px; }
+    label { display: block; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; color: var(--ink-900); margin-bottom: 8px; }
+    .input-wrap { display: flex; align-items: center; gap: 10px; padding: 0 12px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); transition: border-color var(--transition), box-shadow var(--transition); }
+    .input-wrap:focus-within { border-color: var(--sal-orange); box-shadow: 0 0 0 3px var(--sal-orange-tint); }
+    .input-wrap .lead { color: var(--ink-300); flex-shrink: 0; }
+    .input-wrap input { flex: 1; border: none; outline: none; background: transparent; padding: 12px 0; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--ink-900); }
+    .toggle { border: none; background: transparent; cursor: pointer; color: var(--ink-300); display: inline-flex; padding: 4px; }
+    .toggle:hover { color: var(--ink-700); }
+    .err { display: block; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--danger); margin-top: 6px; }
 
-    .login-header {
-      text-align: center;
-      margin-bottom: 30px;
-    }
+    .btn-login { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px; margin-top: 6px; background: var(--sal-orange); color: #fff; border: none; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; transition: background var(--transition); }
+    .btn-login:hover:not(:disabled) { background: var(--sal-orange-dark); }
+    .btn-login:disabled { opacity: 0.55; cursor: not-allowed; }
+    .spin { animation: lg-spin 1s linear infinite; }
+    @keyframes lg-spin { to { transform: rotate(360deg); } }
 
-    .logo-text {
-      font-size: 28px;
-      font-weight: 700;
-      color: #E8621A;
-      margin: 0 0 8px 0;
-      font-family: 'Sora', sans-serif;
-    }
+    .alert-err { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 11px 13px; background: var(--danger-tint); color: var(--danger); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; }
+    .foot { text-align: center; margin-top: 28px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--ink-300); }
 
-    .subtitle {
-      font-size: 13px;
-      color: #888;
-      margin: 0;
-      font-family: 'DM Sans', sans-serif;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    label {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: #1A1A2E;
-      margin-bottom: 8px;
-      font-family: 'DM Sans', sans-serif;
-    }
-
-    .form-input {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #E5E5EA;
-      border-radius: 6px;
-      font-size: 14px;
-      font-family: 'DM Sans', sans-serif;
-      transition: border-color 0.3s;
-      box-sizing: border-box;
-    }
-
-    .form-input:focus {
-      outline: none;
-      border-color: #E8621A;
-      box-shadow: 0 0 0 3px rgba(232, 98, 26, 0.1);
-    }
-
-    .form-input:disabled {
-      background: #F5F5F7;
-      color: #ccc;
-    }
-
-    .error {
-      display: block;
-      font-size: 12px;
-      color: #D94040;
-      margin-top: 4px;
-      font-family: 'DM Sans', sans-serif;
-    }
-
-    .btn-login {
-      width: 100%;
-      padding: 12px;
-      background: #E8621A;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: 'DM Sans', sans-serif;
-      transition: background 0.3s;
-      margin-top: 10px;
-    }
-
-    .btn-login:hover:not(:disabled) {
-      background: #d14d0a;
-    }
-
-    .btn-login:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-
-    .error-message {
-      margin-top: 15px;
-      padding: 10px 12px;
-      background: #FCE3E3;
-      color: #D94040;
-      border-radius: 6px;
-      font-size: 13px;
-      font-family: 'DM Sans', sans-serif;
-    }
-
-    .demo-credentials {
-      margin-top: 20px;
-      padding-top: 20px;
-      border-top: 1px solid #E5E5EA;
-      font-size: 12px;
-      font-family: 'DM Sans', sans-serif;
-      color: #666;
-    }
-
-    .demo-credentials p {
-      margin: 0 0 10px 0;
-      font-weight: 600;
-      color: #1A1A2E;
-    }
-
-    .demo-credentials ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-
-    .demo-credentials li {
-      margin: 5px 0;
-      color: #666;
-    }
-
-    .demo-credentials strong {
-      color: #1A1A2E;
+    @media (max-width: 880px) {
+      .login { grid-template-columns: 1fr; }
+      .brand-panel { display: none; }
     }
   `]
 })
@@ -239,6 +135,9 @@ export class LoginComponent {
   loginForm: FormGroup;
   isLoading = false;
   errorMessage = '';
+  showPassword = false;
+  logoFailed = false;
+  readonly year = new Date().getFullYear();
 
   constructor(
     private fb: FormBuilder,
@@ -251,27 +150,26 @@ export class LoginComponent {
     });
   }
 
+  showError(field: string, error: string): boolean {
+    const c = this.loginForm.get(field);
+    return !!(c?.hasError(error) && c?.touched);
+  }
+
   onSubmit(): void {
-    if (this.loginForm.valid) {
-      this.isLoading = true;
-      this.errorMessage = '';
+    if (!this.loginForm.valid) { this.loginForm.markAllAsTouched(); return; }
+    this.isLoading = true;
+    this.errorMessage = '';
 
-      this.authService.login(this.loginForm.value).subscribe({
-        next: (response) => {
-          this.isLoading = false;
-          const user = response;
-
-          if (user.role === 'ADMINISTRATEUR') {
-            this.router.navigate(['/admin/utilisateurs']);
-          } else {
-            this.router.navigate(['/dashboard']);
-          }
-        },
-        error: (err) => {
-          this.isLoading = false;
-          this.errorMessage = err.error?.message || 'Erreur de connexion. Veuillez vérifier vos identifiants.';
-        },
-      });
-    }
+    this.authService.login(this.loginForm.value).subscribe({
+      next: () => {
+        this.isLoading = false;
+        // Tous les rôles (y compris l'administrateur) atterrissent sur le tableau de bord.
+        this.router.navigate(['/dashboard']);
+      },
+      error: (err) => {
+        this.isLoading = false;
+        this.errorMessage = err.error?.message || 'Erreur de connexion. Veuillez vérifier vos identifiants.';
+      },
+    });
   }
 }

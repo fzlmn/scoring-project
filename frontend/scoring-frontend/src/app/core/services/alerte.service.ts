@@ -17,7 +17,7 @@ export class AlerteService {
     return this.http.get<Alerte[]>(`${this.apiUrl}/non-lues`);
   }
 
-  updateStatut(alerteId: string, statut: 'LUE' | 'TRAITEE'): Observable<Alerte> {
+  updateStatut(alerteId: number, statut: 'LUE' | 'TRAITEE'): Observable<Alerte> {
     return this.http.patch<Alerte>(`${this.apiUrl}/${alerteId}/statut`, { statut });
   }
 

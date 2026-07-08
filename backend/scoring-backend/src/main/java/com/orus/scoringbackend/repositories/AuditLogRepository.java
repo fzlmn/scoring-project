@@ -7,6 +7,8 @@ import java.util.List;
 
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
+    // Le plus récent d'abord : les actions récentes (validations, rejets…) restent visibles en tête.
+    List<AuditLog> findAllByOrderByCreatedAtDesc();
     List<AuditLog> findByUserIdOrderByCreatedAtDesc(Long userId);
     List<AuditLog> findByEntiteAndEntiteIdOrderByCreatedAtDesc(String entite, Long entiteId);
 }

@@ -1,0 +1,9 @@
+# Dépendances supplémentaires pour exécuter les notebooks (en plus de requirements.txt)
+matplotlib==3.9.2
+seaborn==0.13.2
+scipy>=1.11
+xlrd>=2.0.1          # lecture de data/Data Dictionary.xls (notebook 01)
+jupyter
+nbformat>=5.10
+nbclient>=0.10
+httpx>=0.27          # TestClient FastAPI (tests/test_api_e2e.py)

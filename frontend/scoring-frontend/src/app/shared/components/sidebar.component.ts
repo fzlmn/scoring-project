@@ -1,181 +1,279 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { IconComponent } from './ui/icon.component';
 import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../core/models/user.model';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, IconComponent],
   template: `
-    <aside class="sidebar">
+    <aside class="sidebar" [class.collapsed]="collapsed">
+      <!-- ── En-tête : menu utilisateur ── -->
       <div class="sidebar-header">
-        <a routerLink="/profile" class="profile-link">
-          <div class="username">{{ user?.prenom }} {{ user?.nom }}</div>
-          <p class="subtitle">{{ user ? getRoleLabel(user.role) : 'Mon Profil' }}</p>
-        </a>
+        <div class="user-menu" [class.open]="menuOpen">
+          <button type="button" class="user-trigger" (click)="toggleMenu($event)"
+                  [attr.aria-expanded]="menuOpen" aria-haspopup="menu"
+                  [title]="collapsed ? (user?.prenom + ' ' + user?.nom) : ''">
+            <span class="avatar">{{ initials }}</span>
+            <span class="user-text">
+              <span class="username">{{ user?.prenom }} {{ user?.nom }}</span>
+              <span class="subtitle">{{ user ? getRoleLabel(user.role) : 'Mon compte' }}</span>
+            </span>
+            <app-icon class="chevron" name="expand_more" [size]="18"></app-icon>
+          </button>
+
+          <div class="user-dropdown" role="menu" *ngIf="menuOpen">
+            <div class="dd-head">
+              <span class="avatar sm">{{ initials }}</span>
+              <div class="dd-id">
+                <span class="dd-name">{{ user?.prenom }} {{ user?.nom }}</span>
+                <span class="dd-role">{{ user ? getRoleLabel(user.role) : '' }}</span>
+              </div>
+            </div>
+            <a routerLink="/profile" role="menuitem" class="dd-item" (click)="closeMenu()">
+              <app-icon name="account_circle" [size]="18"></app-icon><span>Mon profil</span>
+            </a>
+            <button type="button" role="menuitem" class="dd-item danger" (click)="logout()">
+              <app-icon name="logout" [size]="18"></app-icon><span>Déconnexion</span>
+            </button>
+          </div>
+        </div>
+
+        <button type="button" class="collapse-btn" (click)="toggle()"
+                [attr.aria-label]="collapsed ? 'Déplier la barre latérale' : 'Replier la barre latérale'"
+                [title]="collapsed ? 'Déplier' : 'Replier'">
+          <app-icon [name]="collapsed ? 'chevron_right' : 'chevron_left'" [size]="20"></app-icon>
+        </button>
       </div>
 
+      <!-- ── Navigation ── -->
       <nav class="sidebar-nav">
-        <a routerLink="/dashboard" class="nav-item">
-          <span class="icon">📊</span>
-          <span>Dashboard</span>
+        <a routerLink="/dashboard" class="nav-item" [title]="collapsed ? 'Tableau de bord' : ''">
+          <app-icon class="icon" name="dashboard" [size]="20"></app-icon><span class="label">Tableau de bord</span>
         </a>
 
-        <a *ngIf="canViewClients()" routerLink="/clients" class="nav-item">
-          <span class="icon">👥</span>
-          <span>Clients</span>
+        <a *ngIf="canViewClients()" routerLink="/clients" class="nav-item" [title]="collapsed ? 'Clients' : ''">
+          <app-icon class="icon" name="group" [size]="20"></app-icon><span class="label">Clients</span>
         </a>
 
-        <a *ngIf="user?.role === 'CHARGE_CLIENTELE'" routerLink="/clients/nouveau" class="nav-item">
-          <span class="icon">➕</span>
-          <span>Nouveau Client</span>
+        <a *ngIf="user?.role === 'CHARGE_CLIENTELE'" routerLink="/clients/nouveau" class="nav-item" [title]="collapsed ? 'Nouveau client' : ''">
+          <app-icon class="icon" name="person_add" [size]="20"></app-icon><span class="label">Nouveau client</span>
         </a>
 
-        <a *ngIf="user?.role === 'SUPERVISEUR'" routerLink="/scores" class="nav-item">
-          <span class="icon">✓</span>
-          <span>Valider Scores</span>
+        <a *ngIf="canViewScores()" routerLink="/scores" class="nav-item" [title]="collapsed ? 'Scores' : ''">
+          <app-icon class="icon" name="monitoring" [size]="20"></app-icon><span class="label">Scores</span>
         </a>
 
-        <a *ngIf="user?.role === 'SUPERVISEUR'" routerLink="/alertes" class="nav-item">
-          <span class="icon">🔔</span>
-          <span>Alertes</span>
+        <a *ngIf="user?.role === 'SUPERVISEUR'" routerLink="/scores/validation" class="nav-item" [title]="collapsed ? 'Valider les scores' : ''">
+          <app-icon class="icon" name="fact_check" [size]="20"></app-icon><span class="label">Valider les scores</span>
         </a>
 
-        <a *ngIf="user?.role === 'SUPERVISEUR'" routerLink="/simulations" class="nav-item">
-          <span class="icon">🔄</span>
-          <span>Simulations</span>
+        <a *ngIf="user?.role === 'SUPERVISEUR'" routerLink="/alertes" class="nav-item" [title]="collapsed ? 'Alertes' : ''">
+          <app-icon class="icon" name="notifications" [size]="20"></app-icon><span class="label">Alertes</span>
         </a>
 
-        <a *ngIf="user?.role === 'ADMINISTRATEUR'" routerLink="/admin/utilisateurs" class="nav-item">
-          <span class="icon">⚙️</span>
-          <span>Utilisateurs</span>
+        <a *ngIf="user?.role === 'SUPERVISEUR'" routerLink="/simulations" class="nav-item" [title]="collapsed ? 'Simulations' : ''">
+          <app-icon class="icon" name="tune" [size]="20"></app-icon><span class="label">Simulations</span>
         </a>
 
-        <a *ngIf="user?.role === 'ADMINISTRATEUR'" routerLink="/admin/audit-logs" class="nav-item">
-          <span class="icon">📋</span>
-          <span>Audit Logs</span>
+        <a *ngIf="user?.role === 'SUPERVISEUR'" routerLink="/simulations/historique" class="nav-item" [title]="collapsed ? 'Historique des simulations' : ''">
+          <app-icon class="icon" name="history" [size]="20"></app-icon><span class="label">Historique des simulations</span>
+        </a>
+
+        <a *ngIf="user?.role === 'ADMINISTRATEUR'" routerLink="/admin/utilisateurs" class="nav-item" [title]="collapsed ? 'Utilisateurs' : ''">
+          <app-icon class="icon" name="manage_accounts" [size]="20"></app-icon><span class="label">Utilisateurs</span>
+        </a>
+
+        <a *ngIf="user?.role === 'ADMINISTRATEUR'" routerLink="/admin/audit-logs" class="nav-item" [title]="collapsed ? 'Journal d’audit' : ''">
+          <app-icon class="icon" name="receipt_long" [size]="20"></app-icon><span class="label">Journal d’audit</span>
         </a>
       </nav>
 
+      <!-- ── Pied : marque ── -->
       <div class="sidebar-footer">
-        <button (click)="logout()" class="logout-btn">Déconnexion</button>
+        <div class="brand" [title]="collapsed ? 'ORUS Scoring' : ''">
+          <span class="brand-orus">ORUS<span>Scoring</span></span>
+          <span class="brand-by" *ngIf="!collapsed">
+            propulsé par
+            <img *ngIf="!logoFailed" src="assets/salafin-logo.svg" alt="Salafin" class="salafin-logo" (error)="logoFailed = true" />
+            <span *ngIf="logoFailed" class="salafin-word">Salafin</span>
+          </span>
+        </div>
       </div>
     </aside>
   `,
   styles: [`
     .sidebar {
-      width: 280px;
+      width: var(--sidebar-width);
       background: #1A1A2E;
       color: #fff;
       display: flex;
       flex-direction: column;
       height: 100vh;
-      padding: 0;
       position: fixed;
       left: 0;
       top: 0;
-      border-right: 1px solid #333;
+      border-right: 1px solid #2C2C44;
+      overflow: visible;
+      transition: width var(--transition);
+      z-index: 30;
     }
 
     .sidebar-header {
-      padding: 24px 20px;
-      border-bottom: 1px solid #333;
-      text-align: center;
-    }
-
-    .profile-link {
-      display: inline-block;
-      text-decoration: none;
-      color: inherit;
-    }
-
-    .username {
-      font-size: 20px;
-      font-weight: 700;
-      color: #E8621A;
-      font-family: 'Sora', sans-serif;
-      line-height: 1.2;
-    }
-
-    .subtitle {
-      font-size: 12px;
-      color: #888;
-      margin: 4px 0 0 0;
-    }
-
-    .sidebar-nav {
-      flex: 1;
-      padding: 20px 0;
-      overflow-y: auto;
-    }
-
-    .nav-item {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 14px 20px;
-      color: #ccc;
-      text-decoration: none;
-      transition: all 0.3s ease;
-      border-left: 3px solid transparent;
-      font-size: 14px;
+      gap: 8px;
+      padding: 16px 12px;
+      border-bottom: 1px solid #2C2C44;
+    }
+
+    /* ── User menu ── */
+    .user-menu { position: relative; flex: 1; min-width: 0; }
+    .user-trigger {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      background: transparent; border: 1px solid transparent; border-radius: 10px;
+      padding: 8px; cursor: pointer; color: inherit; text-align: left;
+      transition: background var(--transition), border-color var(--transition);
       font-family: 'DM Sans', sans-serif;
     }
+    .user-trigger:hover, .user-menu.open .user-trigger { background: #252541; border-color: #33334f; }
 
-    .nav-item:hover {
-      background: #252541;
-      color: #E8621A;
-      border-left-color: #E8621A;
+    .avatar {
+      flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px;
+      background: var(--sal-orange); color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-family: 'Sora', sans-serif; font-weight: 700; font-size: 15px;
     }
+    .avatar.sm { width: 34px; height: 34px; font-size: 13px; border-radius: 8px; }
 
-    .nav-item.active {
-      background: #252541;
-      color: #E8621A;
-      border-left-color: #E8621A;
-    }
+    .user-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    .username { font-size: 14px; font-weight: 700; color: #fff; font-family: 'Sora', sans-serif; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .subtitle { font-size: 11px; color: #8A8AA3; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chevron { color: #8A8AA3; flex-shrink: 0; transition: transform var(--transition); }
+    .user-menu.open .chevron { transform: rotate(180deg); }
 
-    .icon {
-      font-size: 18px;
+    .user-dropdown {
+      position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+      background: #23233b; border: 1px solid #33334f; border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.4); padding: 6px; z-index: 40;
+      animation: dd-in 0.14s ease;
     }
+    @keyframes dd-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+    .dd-head { display: flex; align-items: center; gap: 10px; padding: 8px 10px 10px; border-bottom: 1px solid #33334f; margin-bottom: 6px; }
+    .dd-id { display: flex; flex-direction: column; min-width: 0; }
+    .dd-name { font-size: 13px; font-weight: 700; color: #fff; font-family: 'Sora', sans-serif; }
+    .dd-role { font-size: 11px; color: #8A8AA3; }
+    .dd-item {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      padding: 9px 10px; border-radius: 8px; border: none; background: transparent;
+      color: #C7C7D9; font-size: 13px; font-family: 'DM Sans', sans-serif; cursor: pointer;
+      text-decoration: none; transition: background var(--transition), color var(--transition);
+    }
+    .dd-item:hover { background: #2C2C48; color: #fff; }
+    .dd-item.danger:hover { background: rgba(217,64,64,0.15); color: #ff8a8a; }
 
-    .sidebar-footer {
-      padding: 20px;
-      border-top: 1px solid #333;
+    .collapse-btn {
+      flex-shrink: 0; width: 30px; height: 30px; border-radius: 8px;
+      border: 1px solid #2C2C44; background: transparent; color: #8A8AA3;
+      cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+      transition: all var(--transition);
     }
+    .collapse-btn:hover { color: var(--sal-orange); border-color: var(--sal-orange); }
 
-    .logout-btn {
-      width: 100%;
-      padding: 10px;
-      background: #E8621A;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 500;
-      font-size: 13px;
-      font-family: 'DM Sans', sans-serif;
-      transition: background 0.3s ease;
+    /* ── Nav ── */
+    .sidebar-nav { flex: 1; padding: 14px 0; overflow-y: auto; overflow-x: hidden; }
+    .nav-item {
+      display: flex; align-items: center; gap: 14px; padding: 12px 20px;
+      color: #C7C7D9; text-decoration: none; border-left: 3px solid transparent;
+      font-size: 14px; font-family: 'DM Sans', sans-serif; white-space: nowrap;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
     }
+    .nav-item:hover, .nav-item.active { background: #252541; color: var(--sal-orange); border-left-color: var(--sal-orange); }
+    .icon { width: 22px; flex-shrink: 0; }
+    .label { overflow: hidden; }
 
-    .logout-btn:hover {
-      background: #d14d0a;
-    }
+    /* ── Footer / brand ── */
+    .sidebar-footer { padding: 16px; border-top: 1px solid #2C2C44; }
+    .brand { display: flex; flex-direction: column; gap: 4px; }
+    .brand-orus { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 15px; color: #fff; letter-spacing: -0.3px; }
+    .brand-orus span { color: var(--sal-orange); margin-left: 2px; }
+    .brand-by { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: #6E6E88; font-family: 'DM Sans', sans-serif; }
+    .salafin-logo { height: 14px; width: auto; opacity: 0.9; }
+    .salafin-word { font-weight: 700; color: #8A8AA3; letter-spacing: 0.3px; }
+
+    /* ── Collapsed rail ── */
+    .sidebar.collapsed .sidebar-header { flex-direction: column; gap: 10px; padding: 16px 8px; }
+    .sidebar.collapsed .user-menu { width: 100%; display: flex; justify-content: center; }
+    .sidebar.collapsed .user-trigger { justify-content: center; padding: 6px; }
+    .sidebar.collapsed .user-text, .sidebar.collapsed .chevron { display: none; }
+    .sidebar.collapsed .user-dropdown { left: 8px; right: auto; width: 210px; }
+    .sidebar.collapsed .nav-item { justify-content: center; gap: 0; padding: 12px 0; }
+    .sidebar.collapsed .label { display: none; }
+    .sidebar.collapsed .sidebar-footer { padding: 12px 8px; text-align: center; }
+    .sidebar.collapsed .brand-orus { font-size: 11px; }
+    .sidebar.collapsed .brand-orus span { display: block; margin: 0; }
+
+    @media print { .sidebar { display: none !important; } }
   `]
 })
 export class SidebarComponent implements OnInit {
   user: User | null = null;
+  collapsed = false;
+  menuOpen = false;
+  logoFailed = false;
 
-  constructor(private authService: AuthService) {}
+  private static readonly STORAGE_KEY = 'sidebar-collapsed';
+  private static readonly W_EXPANDED = '280px';
+  private static readonly W_COLLAPSED = '76px';
+
+  constructor(private authService: AuthService, private host: ElementRef<HTMLElement>) {}
 
   ngOnInit(): void {
     this.user = this.authService.getUser();
+    this.collapsed = localStorage.getItem(SidebarComponent.STORAGE_KEY) === 'true';
+    this.applyWidth();
+  }
+
+  get initials(): string {
+    const p = this.user?.prenom?.charAt(0) || '';
+    const n = this.user?.nom?.charAt(0) || '';
+    return (p + n).toUpperCase() || 'SS';
+  }
+
+  // ── User menu ──
+  toggleMenu(e: Event): void { e.stopPropagation(); this.menuOpen = !this.menuOpen; }
+  closeMenu(): void { this.menuOpen = false; }
+
+  @HostListener('document:click', ['$event'])
+  onDocClick(e: MouseEvent): void {
+    if (this.menuOpen && !this.host.nativeElement.contains(e.target as Node)) this.menuOpen = false;
+  }
+  @HostListener('document:keydown.escape')
+  onEsc(): void { this.menuOpen = false; }
+
+  // ── Collapse ──
+  toggle(): void {
+    this.collapsed = !this.collapsed;
+    localStorage.setItem(SidebarComponent.STORAGE_KEY, String(this.collapsed));
+    this.applyWidth();
+  }
+
+  private applyWidth(): void {
+    document.documentElement.style.setProperty(
+      '--sidebar-width', this.collapsed ? SidebarComponent.W_COLLAPSED : SidebarComponent.W_EXPANDED);
   }
 
   canViewClients(): boolean {
     const role = this.user?.role;
     return role === 'CHARGE_CLIENTELE' || role === 'ANALYSTE' || role === 'SUPERVISEUR';
+  }
+
+  canViewScores(): boolean {
+    const role = this.user?.role;
+    return role === 'ANALYSTE' || role === 'SUPERVISEUR';
   }
 
   getRoleLabel(role?: string): string {
@@ -185,7 +283,7 @@ export class SidebarComponent implements OnInit {
       'SUPERVISEUR': 'Superviseur',
       'ADMINISTRATEUR': 'Administrateur',
     };
-    return labels[role || ''] || 'Mon Profil';
+    return labels[role || ''] || 'Mon compte';
   }
 
   logout(): void {

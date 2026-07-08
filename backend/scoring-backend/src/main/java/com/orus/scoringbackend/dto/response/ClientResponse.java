@@ -9,17 +9,34 @@ import java.time.LocalDateTime;
 
 @Data @Builder
 public class ClientResponse {
+
+    // ── Identité ──────────────────────────────────────────────────────────
     private Long id;
     private String nom;
     private String prenom;
     private String cin;
     private LocalDate dateNaissance;
     private int age;
+
+    // ── Données financières de base ───────────────────────────────────────
     private SituationPro situationPro;
     private Double revenusMensuels;
     private Double chargesMensuelles;
     private Double tauxEndettement;
     private HistoriqueFinancier historiqueFinancier;
+
+    // ── Données bureau de crédit / auto-déclaration ───────────────────────
+    private Integer nbRetards3059Jours;
+    private Integer nbRetards6089Jours;
+    private Integer nbRetards90JoursPlus;
+    private Integer nbCreditsOuverts;
+    private Integer nbPretsImmobiliers;
+    private Integer nbPersonnesACharge;
+    private Double utilisationCreditRenouvelable;
+
+    // ── Métadonnées ───────────────────────────────────────────────────────
     private LocalDateTime createdAt;
+
+    // ── Dernier score calculé (null si aucun score encore) ───────────────
     private ScoreResponse dernierScore;
 }

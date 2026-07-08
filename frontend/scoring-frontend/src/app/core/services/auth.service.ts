@@ -68,6 +68,22 @@ export class AuthService {
     return this.authState.value.user;
   }
 
+  hasRole(role: string): boolean {
+    return this.getUser()?.role === role;
+  }
+
+  isSuperviseur(): boolean {
+    return this.hasRole('SUPERVISEUR');
+  }
+
+  /**
+   * Seul le superviseur peut exporter des données opérationnelles
+   * (listes, tableaux, rapports de tableau de bord).
+   */
+  canExport(): boolean {
+    return this.isSuperviseur();
+  }
+
   private getUserFromStorage(): User | null {
     const user = localStorage.getItem('user');
     if (!user || user === 'undefined' || user === 'null') {

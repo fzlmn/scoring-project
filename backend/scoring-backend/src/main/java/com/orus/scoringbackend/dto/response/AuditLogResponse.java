@@ -12,5 +12,7 @@ public class AuditLogResponse {
     private String action;
     private String entite;
     private Long entiteId;
+    /** Libellé lisible de la cible (nom du client/utilisateur concerné), si résoluble. */
+    private String cible;
     private LocalDateTime createdAt;
 }

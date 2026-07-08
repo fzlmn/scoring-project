@@ -65,31 +65,44 @@ import { CommonModule } from '@angular/common';
 })
 export class ScoreGaugeComponent {
   @Input() score: number = 0;
+  /** Niveau calibré par le modèle (source de vérité si fourni). */
+  @Input() niveauRisque?: 'FAIBLE' | 'MOYEN' | 'ELEVE';
 
   getArcPath(): string {
     const radius = 80;
-    const circumference = Math.PI * radius;
     const progress = Math.max(0, Math.min(100, this.score)) / 100;
-    const angle = progress * 180;
-    const radians = (angle * Math.PI) / 180;
+    const angle = progress * 180; // 0 → vide, 50 → quart supérieur gauche→haut, 100 → demi-cercle complet
 
     const x = 100 + radius * Math.cos((180 - angle) * (Math.PI / 180));
     const y = 100 - radius * Math.sin((180 - angle) * (Math.PI / 180));
 
-    const largeArc = angle > 90 ? 1 : 0;
-
-    return `M 20 100 A ${radius} ${radius} 0 ${largeArc} 1 ${x} ${y}`;
+    // L'arc balayé vaut toujours `angle` ≤ 180° : le drapeau SVG large-arc doit
+    // donc rester à 0. Le mettre à 1 (ancien code : angle > 90) fait dessiner le
+    // GRAND arc complémentaire (360° − angle), d'où le débordement au-delà du
+    // demi-cercle pour les scores > 50.
+    return `M 20 100 A ${radius} ${radius} 0 0 1 ${x} ${y}`;
   }
 
+  // Le score est un score de RISQUE (P(élevé)×100) : score haut = risque élevé.
   getColor(): string {
-    if (this.score >= 70) return '#2D9C6A';
-    if (this.score >= 40) return '#E8621A';
-    return '#D94040';
+    switch (this.niveauRisque) {
+      case 'ELEVE':  return '#D94040';
+      case 'MOYEN':  return '#E8621A';
+      case 'FAIBLE': return '#2D9C6A';
+    }
+    if (this.score > 60) return '#D94040';
+    if (this.score > 30) return '#E8621A';
+    return '#2D9C6A';
   }
 
   getRiskLabel(): string {
-    if (this.score >= 70) return 'Risque Faible';
-    if (this.score >= 40) return 'Risque Moyen';
-    return 'Risque Élevé';
+    switch (this.niveauRisque) {
+      case 'ELEVE':  return 'Risque Élevé';
+      case 'MOYEN':  return 'Risque Moyen';
+      case 'FAIBLE': return 'Risque Faible';
+    }
+    if (this.score > 60) return 'Risque Élevé';
+    if (this.score > 30) return 'Risque Moyen';
+    return 'Risque Faible';
   }
 }

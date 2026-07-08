@@ -1,9 +1,15 @@
-version: '3.8'
+# Development orchestration for the whole scoring platform.
+#   docker compose up      -> postgres + pgadmin + ml-service + backend + frontend
+#   docker compose down    -> stops everything (postgres data is preserved)
+#
+# Container names are managed by Compose (scoring-project-<service>-1). Service-to-service
+# networking uses service names (postgres, ml-service, backend) on the default network.
+# The frontend talks to the backend via http://localhost:8080 because those calls run in
+# the browser (on the host), which cannot resolve Docker service names.
 
 services:
   postgres:
     image: postgres:15
-    container_name: scoring_postgres
     environment:
       POSTGRES_DB: scoring_db
       POSTGRES_USER: scoring_user
@@ -12,6 +18,103 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scoring_user -d scoring_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com   # pgAdmin rejects reserved TLDs like .local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile.dev
+    environment:
+      # Force polling so uvicorn --reload detects edits across the Windows bind mount.
+      WATCHFILES_FORCE_POLLING: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      # Live source (main.py, src/, models/) — edits trigger uvicorn auto-reload.
+      - ./ml-service:/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s   # model + SHAP explainer load takes a few seconds
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend/scoring-backend
+      dockerfile: Dockerfile.dev
+    environment:
+      # Container-to-container networking via service names:
+      DB_HOST: postgres
+      DB_USER: scoring_user
+      DB_PASS: scoring_pass
+      IA_SERVICE_URL: http://ml-service:8000
+      IA_SERVICE_ENABLED: "true"
+      # spring-boot-devtools: hot-restart the context when target/classes changes.
+      SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend/scoring-backend/src:/app/src       # live source
+      - ./backend/scoring-backend/pom.xml:/app/pom.xml
+      - maven_repo:/root/.m2                          # cached dependencies (survives rebuilds)
+    depends_on:
+      postgres:
+        condition: service_healthy   # Flyway needs the DB ready before migrating
+      ml-service:
+        condition: service_started   # backend calls ML lazily at scoring time
+    healthcheck:
+      test: ["CMD", "bash", "-c", "</dev/tcp/localhost/8080"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 300s  # first run downloads all Maven deps into the volume (minutes);
+                          # warm starts are ~30s. Generous window avoids a false "unhealthy".
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend/scoring-frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend/scoring-frontend:/app   # live source
+      # Keep the container's Linux-built node_modules / cache (do NOT let the host shadow them):
+      - frontend_node_modules:/app/node_modules
+      - frontend_angular_cache:/app/.angular
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
+  postgres_data:          # existing DB volume — preserved, never recreated
+  pgadmin_data:           # pgAdmin settings/registered servers
+  maven_repo:             # backend Maven dependency cache
+  frontend_node_modules:  # frontend Linux node_modules
+  frontend_angular_cache: # Angular build cache

@@ -2,394 +2,143 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AbstractControl, FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { SidebarComponent } from '../../shared/components/sidebar.component';
-import { TopbarComponent } from '../../shared/components/topbar.component';
 import { BadgeComponent } from '../../shared/components/badge.component';
+import { IconComponent } from '../../shared/components/ui/icon.component';
+import { PageHeaderComponent } from '../../shared/components/ui/page-header.component';
+import { ModalComponent } from '../../shared/components/ui/modal.component';
+import {
+  DataTableComponent, CellTemplateDirective, TableColumn, TableRowAction,
+} from '../../shared/components/ui/data-table.component';
+import { FilterBarComponent, FilterDef, FilterValues, applyTableFilters } from '../../shared/components/ui/filter-bar.component';
 import { UserService } from '../../core/services/user.service';
 import { CreatedUserResponse, User } from '../../core/models/user.model';
 
 @Component({
   selector: 'app-users',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, SidebarComponent, TopbarComponent, BadgeComponent],
+  imports: [
+    CommonModule, FormsModule, ReactiveFormsModule, SidebarComponent, BadgeComponent, IconComponent,
+    PageHeaderComponent, ModalComponent, DataTableComponent, CellTemplateDirective, FilterBarComponent,
+  ],
   template: `
     <div class="layout">
       <app-sidebar></app-sidebar>
       <div class="main-content">
-        <app-topbar></app-topbar>
         <div class="content">
-          <h2>Gestion des Utilisateurs</h2>
 
-          <div class="users-container">
-            <div class="form-card">
-              <h3>{{ editingUserId ? 'Modifier' : 'Créer' }} Utilisateur</h3>
+          <app-page-header title="Utilisateurs" subtitle="Créez et gérez les comptes et leurs accès">
+            <button type="button" class="btn btn-primary" (click)="openCreate()">
+              <app-icon name="person_add" [size]="18"></app-icon> Nouvel utilisateur
+            </button>
+          </app-page-header>
 
-              <form [formGroup]="userForm" (ngSubmit)="onSubmit()">
-                <div class="form-group">
-                  <label>Email</label>
-                  <input type="email" formControlName="email" class="form-input" />
-                  <span *ngIf="userForm.get('email')?.hasError('required') && userForm.get('email')?.touched" class="error">
-                    L'email est requis
-                  </span>
-                </div>
-
-                <div class="form-group">
-                  <label>Nom</label>
-                  <input type="text" formControlName="nom" class="form-input" />
-                  <span *ngIf="userForm.get('nom')?.hasError('required') && userForm.get('nom')?.touched" class="error">
-                    Le nom est requis
-                  </span>
-                </div>
-
-                <div class="form-group">
-                  <label>Prénom</label>
-                  <input type="text" formControlName="prenom" class="form-input" />
-                  <span *ngIf="userForm.get('prenom')?.hasError('required') && userForm.get('prenom')?.touched" class="error">
-                    Le prénom est requis
-                  </span>
-                </div>
-
-                <div class="form-group">
-                  <label>Rôle</label>
-                  <select formControlName="role" class="form-input">
-                    <option value="">-- Sélectionner --</option>
-                    <option value="CHARGE_CLIENTELE">Chargé de Clientèle</option>
-                    <option value="ANALYSTE">Analyste</option>
-                    <option value="SUPERVISEUR">Superviseur</option>
-                  </select>
-                  <span *ngIf="userForm.get('role')?.hasError('required') && userForm.get('role')?.touched" class="error">
-                    Le rôle est requis
-                  </span>
-                </div>
-
-                <div class="form-group" *ngIf="!editingUserId">
-                  <label>Mot de passe</label>
-                  <input type="password" formControlName="password" class="form-input" />
-                  <small class="help-text">Laisser vide pour générer un mot de passe aléatoire, ou entrer un mot de passe personnalisé.</small>
-                  <span *ngIf="userForm.get('password')?.hasError('passwordTooShort') && userForm.get('password')?.touched" class="error">
-                    Le mot de passe doit contenir au moins 8 caractères
-                  </span>
-                </div>
-
-                <div class="form-actions">
-                  <button type="button" (click)="resetForm()" class="btn-secondary">Annuler</button>
-                  <button type="submit" [disabled]="!userForm.valid || isLoading" class="btn-primary">
-                    {{ isLoading ? 'En cours...' : editingUserId ? 'Modifier' : 'Créer' }}
-                  </button>
-                </div>
-
-                <div *ngIf="successMessage" class="success-message">
-                  {{ successMessage }}
-                </div>
-                <div *ngIf="errorMessage" class="error-message">
-                  {{ errorMessage }}
-                </div>
-              </form>
-            </div>
-
-            <div class="list-card">
-              <h3>Liste des Utilisateurs</h3>
-              <div class="table-container">
-                <table class="users-table">
-                  <thead>
-                    <tr>
-                      <th>Email</th>
-                      <th>Nom Complet</th>
-                      <th>Rôle</th>
-                      <th>Statut</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let user of users">
-                      <td>{{ user.email }}</td>
-                      <td>{{ user.prenom }} {{ user.nom }}</td>
-                      <td>{{ getRoleLabel(user.role) }}</td>
-                      <td>
-                        <app-badge
-                          [label]="user.actif ? 'Actif' : 'Inactif'"
-                          [variant]="user.actif ? 'success' : 'secondary'"
-                        ></app-badge>
-                      </td>
-                      <td>
-                        <div class="actions">
-                          <button (click)="editUser(user)" class="action-link">Modifier</button>
-                          <button
-                            *ngIf="user.actif"
-                            (click)="desactivateUser(user)"
-                            class="action-link danger"
-                          >
-                            Désactiver
-                          </button>
-                          <button
-                            *ngIf="!user.actif"
-                            (click)="activateUser(user)"
-                            class="action-link success"
-                          >
-                            Activer
-                          </button>
-                          <button (click)="resetPassword(user)" class="action-link warning">
-                            Réinit. MDP
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div *ngIf="users.length === 0" class="empty-state">
-                Aucun utilisateur trouvé
-              </div>
-            </div>
+          <div *ngIf="pageMessage" class="page-msg" [class.ok]="pageMessage.type === 'success'" [class.err]="pageMessage.type === 'error'">
+            <span>{{ pageMessage.text }}</span>
+            <button type="button" class="page-msg-x" (click)="pageMessage = null"><app-icon name="close" [size]="16"></app-icon></button>
           </div>
+
+          <app-data-table
+            [columns]="columns" [rows]="filteredRows" [loading]="isLoading"
+            [rowActions]="rowActions" [hasToolbar]="true"
+            searchPlaceholder="Rechercher par email, nom…"
+            emptyIcon="group_off" emptyMessage="Aucun utilisateur trouvé">
+
+            <app-filter-bar toolbar [filters]="filterDefs" [values]="filterValues"
+                            (valuesChange)="onFilters($event)"></app-filter-bar>
+
+            <ng-template appCell="role" let-row="row"><span class="role">{{ getRoleLabel(row.role) }}</span></ng-template>
+            <ng-template appCell="actif" let-row="row">
+              <app-badge [label]="row.actif ? 'Actif' : 'Inactif'" [variant]="row.actif ? 'success' : 'secondary'"></app-badge>
+            </ng-template>
+          </app-data-table>
+
         </div>
       </div>
     </div>
+
+    <!-- ── Création / édition ── -->
+    <app-modal [open]="formOpen" size="md" [title]="editingUserId ? 'Modifier l’utilisateur' : 'Nouvel utilisateur'" (closed)="formOpen = false">
+      <form [formGroup]="userForm" (ngSubmit)="onSubmit()" class="uform" autocomplete="off">
+        <div class="field">
+          <label>Email</label>
+          <input type="email" formControlName="email" class="input" name="new-user-email"
+                 autocomplete="off" placeholder="prenom.nom@orus.ma"
+                 [attr.readonly]="editingUserId ? true : null" />
+          <span class="err-text" *ngIf="hasError('email','required')">L'email est requis</span>
+          <span class="err-text" *ngIf="hasError('email','email')">Email invalide</span>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Prénom</label>
+            <input type="text" formControlName="prenom" class="input" autocomplete="off" placeholder="Prénom" />
+            <span class="err-text" *ngIf="hasError('prenom','required')">Le prénom est requis</span>
+          </div>
+          <div class="field">
+            <label>Nom</label>
+            <input type="text" formControlName="nom" class="input" autocomplete="off" placeholder="Nom" />
+            <span class="err-text" *ngIf="hasError('nom','required')">Le nom est requis</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Rôle</label>
+          <select formControlName="role" class="input">
+            <option value="">— Sélectionner —</option>
+            <option value="CHARGE_CLIENTELE">Chargé de Clientèle</option>
+            <option value="ANALYSTE">Analyste</option>
+            <option value="SUPERVISEUR">Superviseur</option>
+          </select>
+          <span class="err-text" *ngIf="hasError('role','required')">Le rôle est requis</span>
+        </div>
+        <div class="field" *ngIf="!editingUserId">
+          <label>Mot de passe</label>
+          <input type="password" formControlName="password" class="input" name="new-user-password"
+                 autocomplete="new-password" placeholder="Laisser vide pour générer automatiquement" />
+          <small class="hint">Laisser vide pour générer un mot de passe aléatoire, ou saisir un mot de passe (min. 8 caractères).</small>
+          <span class="err-text" *ngIf="hasError('password','passwordTooShort')">Au moins 8 caractères</span>
+        </div>
+
+        <div class="modal-err" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+        <div class="uform-actions">
+          <button type="button" class="btn btn-secondary" (click)="formOpen = false">Annuler</button>
+          <button type="submit" class="btn btn-primary" [disabled]="!userForm.valid || isSaving">
+            {{ isSaving ? 'En cours…' : (editingUserId ? 'Enregistrer' : 'Créer') }}
+          </button>
+        </div>
+      </form>
+    </app-modal>
   `,
   styles: [`
-    .layout {
-      display: flex;
-      min-height: 100vh;
-      background: #F5F5F7;
-    }
+    .layout { display: flex; min-height: 100vh; background: var(--bg); }
+    .main-content { flex: 1; margin-left: var(--sidebar-width); }
+    .content { padding: var(--space-7); max-width: 1200px; margin: 0 auto; }
+    .role { color: var(--ink-700); font-size: 13px; }
 
-    .main-content {
-      flex: 1;
-      margin-left: 280px;
+    .page-msg {
+      display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+      padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: var(--space-5);
+      font-family: var(--font-body); font-size: 13px;
     }
+    .page-msg.ok { background: var(--success-tint); color: var(--success); }
+    .page-msg.err { background: var(--danger-tint); color: var(--danger); }
+    .page-msg-x { border: none; background: transparent; cursor: pointer; color: inherit; display: inline-flex; }
 
-    .content {
-      padding: 30px;
-      max-width: 1200px;
-      margin: 0 auto;
+    .uform { display: flex; flex-direction: column; gap: var(--space-4); }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 13px; font-weight: 600; color: var(--ink-900); font-family: var(--font-body); }
+    .input {
+      padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+      font-size: 14px; font-family: var(--font-body); color: var(--ink-900); background: var(--surface);
     }
+    .input:focus { outline: none; border-color: var(--sal-orange); box-shadow: 0 0 0 3px var(--sal-orange-tint); }
+    .input[readonly] { background: var(--surface-2); color: var(--ink-500); }
+    .hint { font-size: 11px; color: var(--ink-500); font-family: var(--font-body); }
+    .err-text { font-size: 12px; color: var(--danger); font-family: var(--font-body); }
+    .modal-err { padding: 10px 12px; background: var(--danger-tint); color: var(--danger); border-radius: var(--radius-sm); font-size: 13px; font-family: var(--font-body); }
+    .uform-actions { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-2); }
 
-    h2 {
-      font-size: 24px;
-      font-weight: 600;
-      color: #1A1A2E;
-      margin: 0 0 30px 0;
-      font-family: 'Sora', sans-serif;
-    }
-
-    .users-container {
-      display: grid;
-      grid-template-columns: 1fr 1.5fr;
-      gap: 20px;
-    }
-
-    .form-card,
-    .list-card {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      border: 1px solid #E5E5EA;
-    }
-
-    h3 {
-      margin: 0 0 20px 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: #1A1A2E;
-      font-family: 'Sora', sans-serif;
-    }
-
-    .form-group {
-      margin-bottom: 15px;
-    }
-
-    label {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: #1A1A2E;
-      margin-bottom: 6px;
-      font-family: 'DM Sans', sans-serif;
-    }
-
-    .form-input {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #E5E5EA;
-      border-radius: 6px;
-      font-size: 13px;
-      font-family: 'DM Sans', sans-serif;
-      box-sizing: border-box;
-    }
-
-    .form-input:focus {
-      outline: none;
-      border-color: #E8621A;
-      box-shadow: 0 0 0 3px rgba(232, 98, 26, 0.1);
-    }
-
-    .error {
-      display: block;
-      font-size: 11px;
-      color: #D94040;
-      margin-top: 4px;
-      font-family: 'DM Sans', sans-serif;
-    }
-
-    .form-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    .btn-primary,
-    .btn-secondary {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: 'DM Sans', sans-serif;
-      transition: all 0.3s;
-    }
-
-    .btn-primary {
-      background: #E8621A;
-      color: white;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background: #d14d0a;
-    }
-
-    .btn-primary:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-
-    .btn-secondary {
-      background: #F5F5F7;
-      color: #1A1A2E;
-      border: 1px solid #E5E5EA;
-    }
-
-    .btn-secondary:hover {
-      background: #E5E5EA;
-    }
-
-    .success-message {
-      margin-top: 15px;
-      padding: 10px 12px;
-      background: #E3F5EE;
-      color: #2D9C6A;
-      border-radius: 6px;
-      font-size: 12px;
-      font-family: 'DM Sans', sans-serif;
-    }
-
-    .error-message {
-      margin-top: 15px;
-      padding: 10px 12px;
-      background: #FCE3E3;
-      color: #D94040;
-      border-radius: 6px;
-      font-size: 12px;
-      font-family: 'DM Sans', sans-serif;
-    }
-
-    .table-container {
-      overflow-x: auto;
-    }
-
-    .users-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 12px;
-    }
-
-    thead {
-      background: #F5F5F7;
-    }
-
-    th {
-      padding: 10px;
-      text-align: left;
-      font-weight: 600;
-      color: #1A1A2E;
-      border-bottom: 1px solid #E5E5EA;
-    }
-
-    td {
-      padding: 10px;
-      border-bottom: 1px solid #E5E5EA;
-      color: #666;
-    }
-
-    .actions {
-      display: flex;
-      gap: 5px;
-      flex-wrap: wrap;
-    }
-
-    .action-link {
-      padding: 4px 8px;
-      background: white;
-      border: 1px solid #E8621A;
-      color: #E8621A;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: 'DM Sans', sans-serif;
-      transition: all 0.3s;
-    }
-
-    .action-link:hover {
-      background: #E8621A;
-      color: white;
-    }
-
-    .action-link.danger {
-      border-color: #D94040;
-      color: #D94040;
-    }
-
-    .action-link.danger:hover {
-      background: #D94040;
-      color: white;
-    }
-
-    .action-link.success {
-      border-color: #2D9C6A;
-      color: #2D9C6A;
-    }
-
-    .action-link.success:hover {
-      background: #2D9C6A;
-      color: white;
-    }
-
-    .action-link.warning {
-      border-color: #E8621A;
-      color: #E8621A;
-    }
-
-    .action-link.warning:hover {
-      background: #E8621A;
-      color: white;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: #888;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 13px;
-    }
-
-    @media (max-width: 1024px) {
-      .users-container {
-        grid-template-columns: 1fr;
-      }
-    }
+    @media (max-width: 640px) { .main-content { margin-left: 0; } .content { padding: var(--space-5); } .row2 { grid-template-columns: 1fr; } }
   `]
 })
 export class UsersComponent implements OnInit {
@@ -397,13 +146,35 @@ export class UsersComponent implements OnInit {
   userForm: FormGroup;
   editingUserId: string | null = null;
   isLoading = false;
-  successMessage = '';
+  isSaving = false;
   errorMessage = '';
+  formOpen = false;
+  pageMessage: { type: 'success' | 'error'; text: string } | null = null;
 
-  constructor(
-    private userService: UserService,
-    private fb: FormBuilder
-  ) {
+  filterValues: FilterValues = {};
+  rowActions: TableRowAction[] = [];
+
+  readonly filterDefs: FilterDef[] = [
+    { key: 'role', label: 'rôle', type: 'select', allLabel: 'Tous les rôles',
+      options: [
+        { value: 'CHARGE_CLIENTELE', label: 'Chargé de Clientèle' },
+        { value: 'ANALYSTE', label: 'Analyste' },
+        { value: 'SUPERVISEUR', label: 'Superviseur' },
+        { value: 'ADMINISTRATEUR', label: 'Administrateur' },
+      ] },
+    { key: 'actif', label: 'statut', type: 'select', allLabel: 'Tous les statuts',
+      options: [{ value: 'true', label: 'Actif' }, { value: 'false', label: 'Inactif' }],
+      match: (r, v) => String(r.actif) === v },
+  ];
+
+  readonly columns: TableColumn[] = [
+    { key: 'email', header: 'Email', sortable: true },
+    { key: 'nomComplet', header: 'Nom complet', sortable: true, format: (r) => `${r.prenom} ${r.nom}` },
+    { key: 'role', header: 'Rôle', sortable: true, format: (r) => this.getRoleLabel(r.role) },
+    { key: 'actif', header: 'Statut', sortable: true, format: (r) => (r.actif ? 'Actif' : 'Inactif'), noSearch: true },
+  ];
+
+  constructor(private userService: UserService, private fb: FormBuilder) {
     this.userForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       nom: ['', Validators.required],
@@ -414,125 +185,112 @@ export class UsersComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.rowActions = [
+      { label: 'Modifier', icon: 'edit', variant: 'primary', handler: (u) => this.openEdit(u) },
+      { label: 'Désactiver', icon: 'block', variant: 'danger', visible: (u) => !!u.actif, handler: (u) => this.desactivateUser(u) },
+      { label: 'Activer', icon: 'check_circle', handler: (u) => this.activateUser(u), visible: (u) => !u.actif },
+      { label: 'Réinitialiser le mot de passe', icon: 'key', handler: (u) => this.resetPassword(u) },
+    ];
     this.loadUsers();
   }
 
   private passwordValidator(control: AbstractControl) {
     const value = control.value as string;
-    if (!value) {
-      return null;
-    }
+    if (!value) return null;
     return value.length >= 8 ? null : { passwordTooShort: true };
   }
 
+  hasError(field: string, error: string): boolean {
+    const c = this.userForm.get(field);
+    return !!(c?.hasError(error) && c?.touched);
+  }
+
   loadUsers(): void {
+    this.isLoading = true;
     this.userService.getUsers().subscribe({
-      next: (data) => {
-        this.users = data;
+      next: (data) => { this.users = data; this.isLoading = false; },
+      error: (err) => { console.error('Erreur lors du chargement des utilisateurs', err); this.isLoading = false; },
+    });
+  }
+
+  get filteredRows(): User[] { return applyTableFilters(this.users, this.filterDefs, this.filterValues); }
+  onFilters(v: FilterValues): void { this.filterValues = { ...v }; }
+
+  openCreate(): void {
+    this.editingUserId = null;
+    this.errorMessage = '';
+    this.userForm.reset();
+    this.userForm.get('email')?.enable();
+    this.formOpen = true;
+  }
+
+  openEdit(user: User): void {
+    this.editingUserId = user.id || null;
+    this.errorMessage = '';
+    this.userForm.reset();
+    this.userForm.patchValue({ email: user.email, nom: user.nom, prenom: user.prenom, role: user.role });
+    this.formOpen = true;
+  }
+
+  onSubmit(): void {
+    if (this.userForm.invalid) { this.userForm.markAllAsTouched(); return; }
+    this.isSaving = true;
+    this.errorMessage = '';
+
+    const formData: User = { ...this.userForm.getRawValue(), actif: true };
+    if (!formData.password) delete formData.password;
+
+    const request = this.editingUserId
+      ? this.userService.updateUser(this.editingUserId, formData)
+      : this.userService.createUser(formData);
+
+    request.subscribe({
+      next: (user: CreatedUserResponse) => {
+        this.isSaving = false;
+        if (this.editingUserId) {
+          const i = this.users.findIndex((u) => u.id === this.editingUserId);
+          if (i >= 0) this.users[i] = user;
+          this.pageMessage = { type: 'success', text: 'Utilisateur modifié avec succès.' };
+        } else {
+          this.users = [user, ...this.users];
+          this.pageMessage = {
+            type: 'success',
+            text: user.generatedPassword
+              ? `Utilisateur créé. Mot de passe généré : ${user.generatedPassword}`
+              : 'Utilisateur créé avec succès.',
+          };
+        }
+        this.formOpen = false;
       },
       error: (err) => {
-        console.error('Erreur lors du chargement des utilisateurs', err);
+        this.isSaving = false;
+        this.errorMessage = err.error?.message || 'Erreur lors de la sauvegarde';
       },
     });
   }
 
-  onSubmit(): void {
-    if (this.userForm.valid) {
-      this.isLoading = true;
-      this.errorMessage = '';
-      this.successMessage = '';
-
-      const formData: User = {
-        ...this.userForm.value,
-        actif: true,
-      };
-
-      if (!formData.password) {
-        delete formData.password;
-      }
-
-      const request = this.editingUserId
-        ? this.userService.updateUser(this.editingUserId, formData)
-        : this.userService.createUser(formData);
-
-      request.subscribe({
-        next: (user: CreatedUserResponse) => {
-          this.isLoading = false;
-          if (this.editingUserId) {
-            const index = this.users.findIndex((u) => u.id === this.editingUserId);
-            if (index >= 0) {
-              this.users[index] = user;
-            }
-          } else {
-            this.users.unshift(user);
-          }
-          if (this.editingUserId) {
-            this.successMessage = 'Utilisateur modifié';
-          } else {
-            this.successMessage = user.generatedPassword
-              ? `Utilisateur créé. Mot de passe : ${user.generatedPassword}`
-              : 'Utilisateur créé';
-          }
-          this.resetForm();
-          setTimeout(() => {
-            this.successMessage = '';
-          }, 3000);
-        },
-        error: (err) => {
-          this.isLoading = false;
-          this.errorMessage = err.error?.message || 'Erreur lors de la sauvegarde';
-        },
-      });
-    }
-  }
-
-  editUser(user: User): void {
-    this.editingUserId = user.id || null;
-    this.userForm.patchValue(user);
-  }
-
-  resetForm(): void {
-    this.userForm.reset();
-    this.editingUserId = null;
-  }
-
   activateUser(user: User): void {
-    if (user.id) {
-      this.userService.activerUser(user.id).subscribe({
-        next: () => {
-          user.actif = true;
-        },
-        error: (err) => {
-          console.error('Erreur', err);
-        },
-      });
-    }
+    if (!user.id) return;
+    this.userService.activerUser(user.id).subscribe({
+      next: () => { user.actif = true; this.users = [...this.users]; },
+      error: (err) => console.error('Erreur', err),
+    });
   }
 
   desactivateUser(user: User): void {
-    if (user.id) {
-      this.userService.desactiverUser(user.id).subscribe({
-        next: () => {
-          user.actif = false;
-        },
-        error: (err) => {
-          console.error('Erreur', err);
-        },
-      });
-    }
+    if (!user.id) return;
+    this.userService.desactiverUser(user.id).subscribe({
+      next: () => { user.actif = false; this.users = [...this.users]; },
+      error: (err) => console.error('Erreur', err),
+    });
   }
 
   resetPassword(user: User): void {
-    if (user.id) {
-      this.userService.reinitialiserMotDePasse(user.id).subscribe({
-        next: () => {
-          alert('Mot de passe réinitialisé et envoyé par email');
-        },
-        error: (err) => {
-          console.error('Erreur', err);
-        },
-      });
-    }
+    if (!user.id) return;
+    this.userService.reinitialiserMotDePasse(user.id).subscribe({
+      next: () => { this.pageMessage = { type: 'success', text: `Mot de passe réinitialisé pour ${user.email} (envoyé par email).` }; },
+      error: (err) => console.error('Erreur', err),
+    });
   }
 
   getRoleLabel(role: string): string {

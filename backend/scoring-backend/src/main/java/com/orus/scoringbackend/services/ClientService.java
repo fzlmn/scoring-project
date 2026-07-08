@@ -12,6 +12,7 @@ import com.orus.scoringbackend.exceptions.ResourceNotFoundException;
 import com.orus.scoringbackend.repositories.ClientRepository;
 import com.orus.scoringbackend.repositories.ScoreRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ClientService {
 
     private final ClientRepository clientRepository;
@@ -39,7 +41,10 @@ public class ClientService {
         client = clientRepository.save(client);
 
         // Scoring automatique
-        Score score = iaService.calculerEtSauvegarderScore(client);
+        Score score = iaService.calculerEtSauvegarderScore(client, createdBy.getId());
+
+        // Génération des alertes métier (best-effort)
+        genererAlertes(client, score, false);
 
         // Audit
         auditLogService.log(createdBy, "CREATION_CLIENT", "CLIENT", client.getId());
@@ -66,10 +71,21 @@ public class ClientService {
         client.setRevenusMensuels(request.getRevenusMensuels());
         client.setChargesMensuelles(request.getChargesMensuelles());
         client.setHistoriqueFinancier(request.getHistoriqueFinancier());
+        // Données bureau de crédit — alimentent directement le modèle ML
+        client.setNbRetards3059Jours(request.getNbRetards3059Jours());
+        client.setNbRetards6089Jours(request.getNbRetards6089Jours());
+        client.setNbRetards90JoursPlus(request.getNbRetards90JoursPlus());
+        client.setNbCreditsOuverts(request.getNbCreditsOuverts());
+        client.setNbPretsImmobiliers(request.getNbPretsImmobiliers());
+        client.setNbPersonnesACharge(request.getNbPersonnesACharge());
+        client.setUtilisationCreditRenouvelable(request.getUtilisationCreditRenouvelable());
         client = clientRepository.save(client);
 
         // Recalcul automatique du score
-        Score score = iaService.calculerEtSauvegarderScore(client);
+        Score score = iaService.calculerEtSauvegarderScore(client, modifiedBy.getId());
+
+        // Génération des alertes métier (best-effort)
+        genererAlertes(client, score, true);
 
         // Audit
         auditLogService.log(modifiedBy, "MODIFICATION_CLIENT", "CLIENT", client.getId());
@@ -84,10 +100,13 @@ public class ClientService {
         Client client = clientRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Client introuvable : " + id));
 
-        Score score = iaService.calculerEtSauvegarderScore(client);
+        Score score = iaService.calculerEtSauvegarderScore(client, superviseur.getId());
         if (score == null) {
             throw new BusinessException("Le service IA est désactivé — recalcul impossible");
         }
+
+        // Génération des alertes métier (best-effort)
+        genererAlertes(client, score, true);
 
         auditLogService.log(superviseur, "RECALCUL_SCORE", "CLIENT", client.getId());
 
@@ -109,6 +128,15 @@ public class ClientService {
                 }).toList();
     }
 
+    /** Génération d'alertes en best-effort : ne doit jamais casser le flux client. */
+    private void genererAlertes(Client client, Score score, boolean recalcul) {
+        try {
+            alerteService.genererAlertesPourClient(client, score, recalcul);
+        } catch (Exception e) {
+            log.warn("Génération d'alertes ignorée pour le client {} : {}", client.getId(), e.getMessage());
+        }
+    }
+
     private Client mapToEntity(ClientRequest r) {
         Client c = new Client();
         c.setNom(r.getNom());
@@ -119,6 +147,14 @@ public class ClientService {
         c.setRevenusMensuels(r.getRevenusMensuels());
         c.setChargesMensuelles(r.getChargesMensuelles());
         c.setHistoriqueFinancier(r.getHistoriqueFinancier());
+        // Données bureau de crédit — alimentent directement le modèle ML
+        c.setNbRetards3059Jours(r.getNbRetards3059Jours());
+        c.setNbRetards6089Jours(r.getNbRetards6089Jours());
+        c.setNbRetards90JoursPlus(r.getNbRetards90JoursPlus());
+        c.setNbCreditsOuverts(r.getNbCreditsOuverts());
+        c.setNbPretsImmobiliers(r.getNbPretsImmobiliers());
+        c.setNbPersonnesACharge(r.getNbPersonnesACharge());
+        c.setUtilisationCreditRenouvelable(r.getUtilisationCreditRenouvelable());
         return c;
     }
 
@@ -136,6 +172,13 @@ public class ClientService {
                 .chargesMensuelles(c.getChargesMensuelles())
                 .tauxEndettement(c.getTauxEndettement())
                 .historiqueFinancier(c.getHistoriqueFinancier())
+                .nbRetards3059Jours(c.getNbRetards3059Jours())
+                .nbRetards6089Jours(c.getNbRetards6089Jours())
+                .nbRetards90JoursPlus(c.getNbRetards90JoursPlus())
+                .nbCreditsOuverts(c.getNbCreditsOuverts())
+                .nbPretsImmobiliers(c.getNbPretsImmobiliers())
+                .nbPersonnesACharge(c.getNbPersonnesACharge())
+                .utilisationCreditRenouvelable(c.getUtilisationCreditRenouvelable())
                 .createdAt(c.getCreatedAt())
                 .dernierScore(s != null ? ScoreService.mapToResponse(s) : null)
                 .build();

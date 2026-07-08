@@ -1,0 +1,9 @@
+# Source is bind-mounted, so keep the build context (used only for requirements install) small.
+__pycache__/
+*.pyc
+data/
+notebooks/
+tests/
+docs/
+.git/
+requirements-notebooks.txt

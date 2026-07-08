@@ -45,6 +45,10 @@ public class Score {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    /** Date de validation/rejet par le superviseur. NULL tant que le score est EN_ATTENTE. */
+    @Column(name = "decided_at")
+    private LocalDateTime decidedAt;
+
     @OneToMany(mappedBy = "score", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Explication> explications = new ArrayList<>();
 
