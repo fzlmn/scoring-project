@@ -78,9 +78,22 @@ public class ClientRequest {
      * Taux d'utilisation du crédit renouvelable en pourcentage.
      * Calculé par le frontend depuis : (solde actuel / plafond autorisé) × 100.
      * Saisir 0 si le client ne détient pas de crédit renouvelable.
+     * Recalculé côté serveur si plafondCredit/soldeCredit sont fournis.
      */
     @NotNull(message = "Le taux d'utilisation du crédit renouvelable est obligatoire")
     @DecimalMin(value = "0.0", message = "Le taux ne peut pas être négatif")
     @DecimalMax(value = "100.0", message = "Le taux ne peut pas dépasser 100%")
     private Double utilisationCreditRenouvelable;
+
+    /**
+     * Montants source du crédit renouvelable (optionnels, en DH). Quand ils sont
+     * fournis, le serveur recalcule utilisationCreditRenouvelable à partir d'eux
+     * et les conserve pour retrouver les valeurs d'origine. Rétrocompatible : un
+     * client envoyant uniquement le pourcentage reste accepté.
+     */
+    @PositiveOrZero(message = "Le plafond ne peut pas être négatif")
+    private Double plafondCredit;
+
+    @PositiveOrZero(message = "Le solde ne peut pas être négatif")
+    private Double soldeCredit;
 }

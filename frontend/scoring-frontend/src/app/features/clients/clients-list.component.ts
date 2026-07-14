@@ -10,6 +10,7 @@ import {
   DataTableComponent, CellTemplateDirective, TableColumn, TableRowAction, TableExport,
 } from '../../shared/components/ui/data-table.component';
 import { FilterBarComponent, FilterDef, FilterValues, applyTableFilters } from '../../shared/components/ui/filter-bar.component';
+import { IconButtonComponent } from '../../shared/components/ui/icon-button.component';
 import { ToastService } from '../../core/services/toast.service';
 import { ClientService } from '../../core/services/client.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -21,7 +22,7 @@ import { User } from '../../core/models/user.model';
   standalone: true,
   imports: [
     CommonModule, RouterModule, SidebarComponent, BadgeComponent, IconComponent,
-    PageHeaderComponent, DataTableComponent, CellTemplateDirective, FilterBarComponent,
+    PageHeaderComponent, DataTableComponent, CellTemplateDirective, FilterBarComponent, IconButtonComponent,
   ],
   template: `
     <div class="layout">
@@ -44,10 +45,8 @@ import { User } from '../../core/models/user.model';
 
             <app-filter-bar toolbar [filters]="filterDefs" [values]="filterValues"
                             (valuesChange)="onFilters($event)"></app-filter-bar>
-            <button toolbar type="button" class="btn btn-secondary" (click)="refresh()"
-                    [disabled]="isLoading" title="Recharger les clients (filtres conservés)">
-              <span class="refresh-glyph" [class.spin]="isLoading">⟳</span> Rafraîchir
-            </button>
+            <app-icon-button toolbar icon="refresh" tooltip="Rafraîchir"
+                             [loading]="isLoading" (clicked)="refresh()"></app-icon-button>
 
             <ng-template appCell="client" let-row="row"><span class="cname">{{ row.prenom }} {{ row.nom }}</span></ng-template>
             <ng-template appCell="cin" let-row="row"><span class="mono">{{ row.cin }}</span></ng-template>

@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angula
 import { Router } from '@angular/router';
 import { IconComponent } from '../../shared/components/ui/icon.component';
 import { AuthService } from '../../core/services/auth.service';
+import { BRANDING } from '../../core/branding';
 
 @Component({
   selector: 'app-login',
@@ -14,7 +15,7 @@ import { AuthService } from '../../core/services/auth.service';
       <!-- ── Panneau de marque ── -->
       <aside class="brand-panel">
         <div class="brand-inner">
-          <div class="brand-logo">ORUS<span>Scoring</span></div>
+          <img class="brand-logo-img" [src]="brand.logoPath" [alt]="brand.fullName" />
           <h1 class="brand-headline">Notation &amp; analyse de crédit</h1>
           <p class="brand-sub">
             Plateforme interne d'évaluation du risque client — scoring assisté par
@@ -25,11 +26,6 @@ import { AuthService } from '../../core/services/auth.service';
             <li><app-icon name="verified_user" [size]="18"></app-icon> Validation supervisée</li>
             <li><app-icon name="insights" [size]="18"></app-icon> Tableaux de bord par rôle</li>
           </ul>
-          <div class="brand-by">
-            propulsé par
-            <img *ngIf="!logoFailed" src="assets/salafin-logo.svg" alt="Salafin" class="salafin-logo" (error)="logoFailed = true" />
-            <span *ngIf="logoFailed" class="salafin-word">Salafin</span>
-          </div>
         </div>
       </aside>
 
@@ -77,7 +73,7 @@ import { AuthService } from '../../core/services/auth.service';
             </div>
           </form>
 
-          <p class="foot">© {{ year }} ORUS Services · Usage interne</p>
+          <p class="foot">© {{ year }} OScore · Usage interne</p>
         </div>
       </main>
     </div>
@@ -88,17 +84,15 @@ import { AuthService } from '../../core/services/auth.service';
     /* Brand panel */
     .brand-panel { position: relative; background: linear-gradient(150deg, #1A1A2E 0%, #23233f 55%, #2b1c30 100%); color: #fff; display: flex; align-items: center; overflow: hidden; }
     .brand-panel::after { content: ''; position: absolute; width: 420px; height: 420px; right: -120px; top: -120px; background: radial-gradient(circle, rgba(232,98,26,0.28), transparent 62%); }
-    .brand-inner { position: relative; padding: 64px 60px; max-width: 520px; }
-    .brand-logo { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: -0.5px; }
-    .brand-logo span { color: var(--sal-orange); margin-left: 3px; }
-    .brand-headline { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 30px; line-height: 1.2; margin: 40px 0 16px; }
+    .brand-inner { position: relative; padding: 64px 60px; max-width: 680px; }
+    /* The PNG carries ~11.4% transparent padding on its left; pull it back so the
+       visible mark's left edge lines up with the heading/paragraph/bullets below. */
+    .brand-logo-img { display: block; width: 100%; height: auto; max-width: 100%; margin-left: -11.4%; }
+    .brand-headline { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 30px; line-height: 1.2; margin: 0 0 16px; }
     .brand-sub { font-family: 'DM Sans', sans-serif; font-size: 15px; line-height: 1.65; color: #B9B9CE; margin: 0 0 32px; }
     .brand-points { list-style: none; padding: 0; margin: 0 0 44px; display: flex; flex-direction: column; gap: 14px; }
     .brand-points li { display: flex; align-items: center; gap: 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #E4E4F0; }
     .brand-points app-icon { color: var(--sal-orange); }
-    .brand-by { display: inline-flex; align-items: center; gap: 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: #7A7A96; }
-    .salafin-logo { height: 18px; width: auto; }
-    .salafin-word { font-weight: 700; color: #B9B9CE; letter-spacing: 0.3px; }
 
     /* Form panel */
     .form-panel { display: flex; align-items: center; justify-content: center; padding: 40px; background: var(--bg); }
@@ -136,7 +130,7 @@ export class LoginComponent {
   isLoading = false;
   errorMessage = '';
   showPassword = false;
-  logoFailed = false;
+  readonly brand = BRANDING;
   readonly year = new Date().getFullYear();
 
   constructor(

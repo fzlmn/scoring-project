@@ -130,6 +130,7 @@ public class DashboardService {
             // ── Dashboard superviseur / analyste / admin : pilotage global ─
             LocalDate today = LocalDate.now();
             long decisionsEnAttente = scoreRepository.countByStatut(StatutScore.EN_ATTENTE);
+            long recalculesEnAttente = scoreRepository.countRecalculesByStatut(StatutScore.EN_ATTENTE);
             long validesTotal       = scoreRepository.countByStatut(StatutScore.VALIDE);
             long rejetesTotal       = scoreRepository.countByStatut(StatutScore.REJETE);
             long validesAuj = scoreRepository.countByStatutAndDecidedAtGreaterThanEqual(
@@ -138,6 +139,7 @@ public class DashboardService {
                     StatutScore.REJETE, today.atStartOfDay());
 
             b.decisionsEnAttente(decisionsEnAttente)
+             .scoresRecalculesEnAttente(recalculesEnAttente)
              .scoresValidesAujourdhui(validesAuj)
              .scoresRejetesAujourdhui(rejetesAuj)
              .clientsHautRisque(eleve)

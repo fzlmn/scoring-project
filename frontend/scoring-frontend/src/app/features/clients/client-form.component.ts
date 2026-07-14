@@ -369,6 +369,10 @@ export class ClientFormComponent implements OnInit {
           nbPretsImmobiliers: client.nbPretsImmobiliers ?? 0,
           utilisationCreditRenouvelable: client.utilisationCreditRenouvelable ?? 0,
         });
+        // Restaure les montants source si le client en a (créé/modifié depuis V6) ;
+        // sinon les champs restent vides et le % stocké est conservé tel quel.
+        this.plafondCredit = client.plafondCredit ?? 0;
+        this.soldeCredit = client.soldeCredit ?? 0;
         this.clientForm.get('cin')?.disable();
       },
       error: () => { this.errorMessage = 'Impossible de charger le client.'; },
@@ -453,6 +457,10 @@ export class ClientFormComponent implements OnInit {
 
     const raw = this.clientForm.getRawValue();
     const { tauxEndettement, ...formData } = raw;
+    // Montants source du crédit renouvelable : envoyés en plus du % (payload ML inchangé) ;
+    // null si aucun plafond saisi, pour ne pas écraser un client existant sans montants.
+    formData.plafondCredit = this.plafondCredit > 0 ? this.plafondCredit : null;
+    formData.soldeCredit = this.plafondCredit > 0 ? this.soldeCredit : null;
 
     const request = this.clientId
       ? this.clientService.updateClient(this.clientId, formData)

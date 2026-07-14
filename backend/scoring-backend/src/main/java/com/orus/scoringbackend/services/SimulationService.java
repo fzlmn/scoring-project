@@ -161,6 +161,9 @@ public class SimulationService {
         params.put("nbPersonnesACharge", orClient(r.getNbPersonnesACharge(), c.getNbPersonnesACharge()));
         params.put("utilisationCreditRenouvelable",
                 orClient(r.getUtilisationCreditRenouvelable(), c.getUtilisationCreditRenouvelable()));
+        // Montants source du crédit renouvelable : valeur simulée ou, à défaut, valeur client.
+        params.put("plafondCredit", orClient(r.getPlafondCredit(), c.getPlafondCredit()));
+        params.put("soldeCredit", orClient(r.getSoldeCredit(), c.getSoldeCredit()));
         try {
             return objectMapper.writeValueAsString(params);
         } catch (Exception e) {

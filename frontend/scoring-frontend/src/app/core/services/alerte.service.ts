@@ -21,6 +21,11 @@ export class AlerteService {
     return this.http.patch<Alerte>(`${this.apiUrl}/${alerteId}/statut`, { statut });
   }
 
+  /** Marque toutes les alertes non lues comme « vues » (LUE). */
+  marquerVues(): Observable<{ marquees: number }> {
+    return this.http.patch<{ marquees: number }>(`${this.apiUrl}/marquer-vues`, {});
+  }
+
   getAlerteSummary(): Observable<AlerteSummary> {
     return this.http.get<AlerteSummary>(`${this.apiUrl}/summary`);
   }

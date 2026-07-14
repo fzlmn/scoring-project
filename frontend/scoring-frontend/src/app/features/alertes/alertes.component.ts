@@ -1,8 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { SidebarComponent } from '../../shared/components/sidebar.component';
 import { BadgeComponent } from '../../shared/components/badge.component';
+import { IconComponent } from '../../shared/components/ui/icon.component';
+import { IconButtonComponent } from '../../shared/components/ui/icon-button.component';
 import { AlerteService } from '../../core/services/alerte.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Alerte } from '../../core/models/alerte.model';
@@ -10,7 +13,7 @@ import { Alerte } from '../../core/models/alerte.model';
 @Component({
   selector: 'app-alertes',
   standalone: true,
-  imports: [CommonModule, SidebarComponent, BadgeComponent],
+  imports: [CommonModule, FormsModule, SidebarComponent, BadgeComponent, IconComponent, IconButtonComponent],
   template: `
     <div class="layout">
       <app-sidebar></app-sidebar>
@@ -18,38 +21,23 @@ import { Alerte } from '../../core/models/alerte.model';
           <h2>Alertes Clients</h2>
 
           <div class="filters">
-            <button
-              (click)="filterStatut('all')"
-              [class.active]="filtreStatut === 'all'"
-              class="filter-btn"
-            >
-              Toutes ({{ getTotalCount() }})
+            <button (click)="filterStatut('A_TRAITER')" [class.active]="filtreStatut === 'A_TRAITER'" class="filter-btn">
+              À traiter ({{ countATraiter() }})
             </button>
-            <button
-              (click)="filterStatut('NON_LUE')"
-              [class.active]="filtreStatut === 'NON_LUE'"
-              class="filter-btn"
-            >
-              Non Lues ({{ getCountByStatus('NON_LUE') }})
-            </button>
-            <button
-              (click)="filterStatut('LUE')"
-              [class.active]="filtreStatut === 'LUE'"
-              class="filter-btn"
-            >
-              Lues ({{ getCountByStatus('LUE') }})
-            </button>
-            <button
-              (click)="filterStatut('TRAITEE')"
-              [class.active]="filtreStatut === 'TRAITEE'"
-              class="filter-btn"
-            >
+            <button (click)="filterStatut('TRAITEE')" [class.active]="filtreStatut === 'TRAITEE'" class="filter-btn">
               Traitées ({{ getCountByStatus('TRAITEE') }})
             </button>
-            <button class="refresh-btn" (click)="refresh()" [disabled]="isRefreshing"
-                    title="Recharger les alertes (filtre conservé)">
-              <span [class.spin]="isRefreshing">⟳</span> Rafraîchir
+            <button (click)="filterStatut('all')" [class.active]="filtreStatut === 'all'" class="filter-btn">
+              Toutes ({{ getTotalCount() }})
             </button>
+            <div class="date-filter">
+              <label>Du <input type="date" [(ngModel)]="dateFrom" (ngModelChange)="onDateChange()" /></label>
+              <label>Au <input type="date" [(ngModel)]="dateTo" (ngModelChange)="onDateChange()" /></label>
+              <button *ngIf="dateFrom || dateTo" type="button" class="clear-dates" (click)="clearDates()"
+                      title="Effacer les dates">✕</button>
+            </div>
+            <app-icon-button icon="refresh" tooltip="Rafraîchir" [loading]="isRefreshing"
+                             (clicked)="refresh()"></app-icon-button>
           </div>
 
           <div class="table-container">
@@ -65,7 +53,11 @@ import { Alerte } from '../../core/models/alerte.model';
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let alerte of filteredAlertes" [class.non-lue]="alerte.statut === 'NON_LUE'">
+                <!-- Toute la ligne est cliquable : « ouvrir » l'alerte la marque lue
+                     automatiquement (et navigue vers l'objet concerné si applicable). -->
+                <tr *ngFor="let alerte of pagedAlertes" [class.non-lue]="alerte.statut === 'NON_LUE'"
+                    class="alerte-row" (click)="openAlerte(alerte)"
+                    [title]="hasTarget(alerte) ? 'Ouvrir l’élément concerné' : 'Marquer comme lue'">
                   <td>
                     <app-badge
                       [label]="formatCriticite(alerte.criticite)"
@@ -73,39 +65,20 @@ import { Alerte } from '../../core/models/alerte.model';
                     ></app-badge>
                   </td>
                   <td>{{ formatType(alerte.typeAlerte) }}</td>
-                  <!-- Alerte actionnable : cliquer la description ouvre l'objet concerné -->
                   <td class="description">
-                    <a *ngIf="hasTarget(alerte); else plainDesc" class="alerte-link"
-                       (click)="ouvrirAlerte(alerte)" title="Ouvrir l'élément concerné">
-                      {{ alerte.description }}
-                    </a>
-                    <ng-template #plainDesc>{{ alerte.description }}</ng-template>
+                    {{ alerte.description }}
+                    <app-icon *ngIf="hasTarget(alerte)" name="open_in_new" [size]="14" class="desc-open"></app-icon>
                   </td>
                   <td>{{ formatStatut(alerte.statut) }}</td>
                   <td>{{ alerte.createdAt | date:'short' }}</td>
                   <td>
                     <div class="actions">
-                      <button
-                        *ngIf="hasTarget(alerte)"
-                        (click)="ouvrirAlerte(alerte)"
-                        class="action-btn examine"
-                        title="Ouvrir le score ou la fiche client concernés"
-                      >
-                        Examiner →
-                      </button>
-                      <button
-                        *ngIf="alerte.statut === 'NON_LUE'"
-                        (click)="marquerLue(alerte)"
-                        class="action-btn"
-                        title="Marquer comme lue"
-                      >
-                        Lue
-                      </button>
+                      <!-- Seule action explicite : résoudre. Le « lu » est automatique. -->
                       <button
                         *ngIf="alerte.statut !== 'TRAITEE'"
-                        (click)="marquerTraitee(alerte)"
+                        (click)="marquerTraitee(alerte); $event.stopPropagation()"
                         class="action-btn"
-                        title="Marquer comme traitée"
+                        title="Marquer comme traitée (résolue)"
                       >
                         Traitée
                       </button>
@@ -118,6 +91,16 @@ import { Alerte } from '../../core/models/alerte.model';
 
           <div *ngIf="filteredAlertes.length === 0" class="empty-state">
             Aucune alerte trouvée
+          </div>
+
+          <!-- Pagination -->
+          <div class="pagination" *ngIf="totalPages > 1">
+            <button type="button" (click)="goToPage(page - 1)" [disabled]="page === 0">‹ Précédent</button>
+            <span class="page-info">
+              Page {{ page + 1 }} / {{ totalPages }}
+              <span class="muted">({{ filteredAlertes.length }} alerte(s))</span>
+            </span>
+            <button type="button" (click)="goToPage(page + 1)" [disabled]="page >= totalPages - 1">Suivant ›</button>
           </div>
         </div>
       </div>
@@ -151,6 +134,7 @@ import { Alerte } from '../../core/models/alerte.model';
 
     .filters {
       display: flex;
+      align-items: center;
       gap: 10px;
       margin-bottom: 20px;
       flex-wrap: wrap;
@@ -212,13 +196,18 @@ import { Alerte } from '../../core/models/alerte.model';
       color: #666;
     }
 
+    /* Alerte non lue : fond ambré + liseré orange à gauche (visible), comme une
+       notification non consultée. Disparaît à la prochaine ouverture de la page. */
     tr.non-lue {
-      background: #FFFBF5;
+      background: #FFF4E0;
+      box-shadow: inset 3px 0 0 0 #E8621A;
     }
+    tr.non-lue:hover { background: #FFEFD3; }
 
     tr.non-lue td {
-      font-weight: 500;
+      font-weight: 600;
     }
+    tr.non-lue td:first-child { position: relative; }
 
     .description {
       max-width: 400px;
@@ -256,47 +245,81 @@ import { Alerte } from '../../core/models/alerte.model';
       font-family: 'DM Sans', sans-serif;
     }
 
-    .refresh-btn {
-      margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
-      padding: 8px 14px; border: 1px solid #E5E5EA; border-radius: 6px;
-      background: white; color: #1A1A2E; font-size: 13px; font-weight: 600;
-      font-family: 'DM Sans', sans-serif; cursor: pointer;
-    }
-    .refresh-btn:hover:not(:disabled) { background: #F5F5F7; }
-    .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .refresh-btn .spin, .spin { display: inline-block; animation: al-spin 1s linear infinite; }
-    @keyframes al-spin { to { transform: rotate(360deg); } }
+    .date-filter { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; }
+    .date-filter label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #666; font-family: 'DM Sans', sans-serif; }
+    .date-filter input { padding: 6px 8px; border: 1px solid #E5E5EA; border-radius: 6px; font-size: 12px; font-family: 'DM Sans', sans-serif; color: #1A1A2E; }
+    .clear-dates { width: 26px; height: 26px; border-radius: 6px; border: 1px solid #E5E5EA; background: #fff; color: #888; cursor: pointer; font-size: 12px; }
+    .clear-dates:hover { background: #F5F5F7; color: #D94040; }
 
-    .alerte-link { color: #1A6FD4; cursor: pointer; text-decoration: none; }
-    .alerte-link:hover { text-decoration: underline; }
-    .action-btn.examine { background: #1A6FD4; }
-    .action-btn.examine:hover { background: #1559ad; }
+    .pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 18px; font-family: 'DM Sans', sans-serif; }
+    .pagination button { padding: 7px 14px; border: 1px solid #E5E5EA; border-radius: 6px; background: #fff; color: #1A1A2E; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .pagination button:hover:not(:disabled) { background: #F5F5F7; }
+    .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .page-info { font-size: 13px; color: #666; }
+    .page-info .muted { color: #aaa; }
+
+    .alerte-row { cursor: pointer; transition: background 0.12s; }
+    .alerte-row:hover td { background: #F8F9FA; }
+    .desc-open { color: #1A6FD4; vertical-align: middle; margin-left: 4px; opacity: 0.7; }
   `]
 })
 export class AlertesComponent implements OnInit {
   alertes: Alerte[] = [];
   filteredAlertes: Alerte[] = [];
-  filtreStatut = 'all';
+  pagedAlertes: Alerte[] = [];
+  filtreStatut: 'A_TRAITER' | 'TRAITEE' | 'all' = 'A_TRAITER';
+  dateFrom = '';
+  dateTo = '';
+  page = 0;
+  readonly pageSize = 10;
   isRefreshing = false;
+
+  get totalPages(): number { return Math.ceil(this.filteredAlertes.length / this.pageSize); }
 
   constructor(
     private alerteService: AlerteService,
     private router: Router,
+    private route: ActivatedRoute,
     private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
+    // Restaure le contexte (filtre / dates / page) depuis l'URL — préservé au retour (#2).
+    const p = this.route.snapshot.queryParamMap;
+    const f = p.get('filtre');
+    if (f === 'A_TRAITER' || f === 'TRAITEE' || f === 'all') this.filtreStatut = f;
+    this.dateFrom = p.get('du') || '';
+    this.dateTo = p.get('au') || '';
+    this.page = Math.max(0, Number(p.get('page')) || 0);
     this.loadAlertes();
+  }
+
+  /** Écrit le contexte courant dans l'URL (replaceUrl) pour qu'un « Retour » le restaure. */
+  private syncUrl(): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        filtre: this.filtreStatut !== 'A_TRAITER' ? this.filtreStatut : null,
+        du: this.dateFrom || null,
+        au: this.dateTo || null,
+        page: this.page > 0 ? this.page : null,
+      },
+      replaceUrl: true,
+    });
   }
 
   loadAlertes(notify = false): void {
     this.isRefreshing = true;
     this.alerteService.getAlertes().subscribe({
       next: (data) => {
-        this.alertes = data;
+        // Tri par défaut : plus récentes en premier ; une nouvelle alerte apparaît en tête.
+        this.alertes = [...data].sort((a, b) => this.ts(b.createdAt) - this.ts(a.createdAt));
         this.applyFilter();
         this.isRefreshing = false;
         if (notify) this.toast.info('Alertes actualisées.');
+        // Note : l'ouverture de la page ne marque PAS les alertes comme lues.
+        // Une alerte devient LUE uniquement quand l'utilisateur l'ouvre/clique
+        // (openAlerte), comme dans un système de notifications (LinkedIn, Outlook…).
       },
       error: (err) => {
         console.error('Erreur lors du chargement des alertes', err);
@@ -309,6 +332,11 @@ export class AlertesComponent implements OnInit {
   /** Recharge sans recharger la page — le filtre courant est conservé. */
   refresh(): void { this.loadAlertes(true); }
 
+  /** Horodatage (ms) d'une alerte pour le tri ; 0 si date absente. */
+  private ts(v?: string): number {
+    return v ? new Date(v).getTime() : 0;
+  }
+
   /** Une alerte est actionnable si elle référence un score ou un client. */
   hasTarget(alerte: Alerte): boolean {
     return alerte.scoreId != null || alerte.clientId != null;
@@ -319,10 +347,11 @@ export class AlertesComponent implements OnInit {
    *    (les scores déjà traités s'y affichent en lecture seule) ;
    *  - alerte liée à un client → fiche client.
    *  L'alerte non lue est marquée LUE au passage. */
-  ouvrirAlerte(alerte: Alerte): void {
+  openAlerte(alerte: Alerte): void {
+    // #4 : « ouvrir » marque automatiquement l'alerte comme lue (comportement notification).
     if (alerte.statut === 'NON_LUE' && alerte.id) {
       this.alerteService.updateStatut(alerte.id, 'LUE').subscribe({
-        next: () => { alerte.statut = 'LUE'; },
+        next: () => { alerte.statut = 'LUE'; if (!this.hasTarget(alerte)) this.applyFilter(); },
         error: () => { /* navigation prioritaire — le statut sera re-synchronisé au retour */ },
       });
     }
@@ -333,33 +362,63 @@ export class AlertesComponent implements OnInit {
     }
   }
 
-  filterStatut(statut: string): void {
+  filterStatut(statut: 'A_TRAITER' | 'TRAITEE' | 'all'): void {
     this.filtreStatut = statut;
+    this.page = 0;
     this.applyFilter();
+    this.syncUrl();
+  }
+
+  /** Nombre d'alertes non résolues (à traiter). */
+  countATraiter(): number {
+    return this.alertes.filter((a) => a.statut !== 'TRAITEE').length;
+  }
+
+  onDateChange(): void {
+    this.page = 0;
+    this.applyFilter();
+    this.syncUrl();
+  }
+
+  clearDates(): void {
+    this.dateFrom = '';
+    this.dateTo = '';
+    this.onDateChange();
+  }
+
+  goToPage(p: number): void {
+    this.page = Math.max(0, Math.min(p, this.totalPages - 1));
+    this.updatePaged();
+    this.syncUrl();
   }
 
   applyFilter(): void {
-    if (this.filtreStatut === 'all') {
-      this.filteredAlertes = this.alertes;
-    } else {
-      this.filteredAlertes = this.alertes.filter((a) => a.statut === this.filtreStatut);
+    let list = this.alertes;
+    // « À traiter » = non résolues (NON_LUE ou LUE) ; « Traitées » = résolues.
+    if (this.filtreStatut === 'A_TRAITER') {
+      list = list.filter((a) => a.statut !== 'TRAITEE');
+    } else if (this.filtreStatut === 'TRAITEE') {
+      list = list.filter((a) => a.statut === 'TRAITEE');
     }
+    // Filtre par plage de dates (inclusif ; borne haute = fin de journée)
+    if (this.dateFrom) {
+      const from = new Date(this.dateFrom).getTime();
+      list = list.filter((a) => a.createdAt && new Date(a.createdAt).getTime() >= from);
+    }
+    if (this.dateTo) {
+      const to = new Date(this.dateTo).getTime() + 24 * 60 * 60 * 1000 - 1;
+      list = list.filter((a) => a.createdAt && new Date(a.createdAt).getTime() <= to);
+    }
+    this.filteredAlertes = list;
+    // Conserve la page courante si elle reste valide (restauration depuis l'URL) ;
+    // sinon revient sur la dernière page disponible.
+    if (this.page >= this.totalPages) this.page = Math.max(0, this.totalPages - 1);
+    this.updatePaged();
   }
 
-  marquerLue(alerte: Alerte): void {
-    if (alerte.id) {
-      this.alerteService.updateStatut(alerte.id, 'LUE').subscribe({
-        next: () => {
-          alerte.statut = 'LUE';
-          this.applyFilter();
-          this.toast.success('Alerte marquée comme lue.');
-        },
-        error: (err) => {
-          console.error('Erreur', err);
-          this.toast.error("Échec de la mise à jour de l'alerte.");
-        },
-      });
-    }
+  private updatePaged(): void {
+    const start = this.page * this.pageSize;
+    this.pagedAlertes = this.filteredAlertes.slice(start, start + this.pageSize);
   }
 
   marquerTraitee(alerte: Alerte): void {

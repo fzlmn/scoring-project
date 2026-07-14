@@ -79,6 +79,9 @@ public class ClientService {
         client.setNbPretsImmobiliers(request.getNbPretsImmobiliers());
         client.setNbPersonnesACharge(request.getNbPersonnesACharge());
         client.setUtilisationCreditRenouvelable(request.getUtilisationCreditRenouvelable());
+        // Montants source (le hook @PreUpdate recalcule le % si le plafond est fourni)
+        client.setPlafondCredit(request.getPlafondCredit());
+        client.setSoldeCredit(request.getSoldeCredit());
         client = clientRepository.save(client);
 
         // Recalcul automatique du score
@@ -103,6 +106,14 @@ public class ClientService {
         Score score = iaService.calculerEtSauvegarderScore(client, superviseur.getId());
         if (score == null) {
             throw new BusinessException("Le service IA est désactivé — recalcul impossible");
+        }
+
+        // Le recalcul réévalue le dossier : on résout les alertes en cours du client
+        // AVANT de régénérer d'éventuelles nouvelles alertes sur le nouveau score.
+        try {
+            alerteService.marquerTraiteesPourClient(client.getId());
+        } catch (Exception e) {
+            log.warn("Résolution des alertes du client {} ignorée : {}", client.getId(), e.getMessage());
         }
 
         // Génération des alertes métier (best-effort)
@@ -155,6 +166,9 @@ public class ClientService {
         c.setNbPretsImmobiliers(r.getNbPretsImmobiliers());
         c.setNbPersonnesACharge(r.getNbPersonnesACharge());
         c.setUtilisationCreditRenouvelable(r.getUtilisationCreditRenouvelable());
+        // Montants source (le hook @PrePersist recalcule le % si le plafond est fourni)
+        c.setPlafondCredit(r.getPlafondCredit());
+        c.setSoldeCredit(r.getSoldeCredit());
         return c;
     }
 
@@ -179,6 +193,8 @@ public class ClientService {
                 .nbPretsImmobiliers(c.getNbPretsImmobiliers())
                 .nbPersonnesACharge(c.getNbPersonnesACharge())
                 .utilisationCreditRenouvelable(c.getUtilisationCreditRenouvelable())
+                .plafondCredit(c.getPlafondCredit())
+                .soldeCredit(c.getSoldeCredit())
                 .createdAt(c.getCreatedAt())
                 .dernierScore(s != null ? ScoreService.mapToResponse(s) : null)
                 .build();

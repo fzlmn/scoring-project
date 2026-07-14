@@ -36,6 +36,7 @@ public class DashboardResponse {
 
     // ── KPIs & graphiques : superviseur (pilotage) ────────────────────────
     private long decisionsEnAttente;
+    private long scoresRecalculesEnAttente; // part des recalculs dans la file de validation
     private long scoresValidesAujourdhui;
     private long scoresRejetesAujourdhui;
     private long clientsHautRisque;

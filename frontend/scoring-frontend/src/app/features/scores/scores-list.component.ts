@@ -9,10 +9,14 @@ import {
   DataTableComponent, CellTemplateDirective, TableColumn, TableRowAction, TableExport,
 } from '../../shared/components/ui/data-table.component';
 import { FilterBarComponent, FilterDef, FilterValues, applyTableFilters } from '../../shared/components/ui/filter-bar.component';
+import { IconComponent } from '../../shared/components/ui/icon.component';
+import { IconButtonComponent } from '../../shared/components/ui/icon-button.component';
 import { ScoreService } from '../../core/services/score.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ClientService } from '../../core/services/client.service';
+import { Client } from '../../core/models/client.model';
 import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { Score, ScoreListItem } from '../../core/models/score.model';
 import { User } from '../../core/models/user.model';
 
@@ -20,8 +24,8 @@ import { User } from '../../core/models/user.model';
   selector: 'app-scores-list',
   standalone: true,
   imports: [
-    CommonModule, RouterModule, SidebarComponent, BadgeComponent,
-    PageHeaderComponent, ModalComponent, DataTableComponent, CellTemplateDirective, FilterBarComponent,
+    CommonModule, RouterModule, SidebarComponent, BadgeComponent, IconComponent,
+    PageHeaderComponent, ModalComponent, DataTableComponent, CellTemplateDirective, FilterBarComponent, IconButtonComponent,
   ],
   template: `
     <div class="layout">
@@ -44,10 +48,8 @@ import { User } from '../../core/models/user.model';
 
             <app-filter-bar toolbar [filters]="filterDefs" [values]="filterValues"
                             (valuesChange)="onFilters($event)"></app-filter-bar>
-            <button toolbar type="button" class="btn btn-secondary btn-refresh" (click)="refresh()"
-                    [disabled]="isLoading" title="Recharger les scores (filtres conservés)">
-              <span class="refresh-glyph" [class.spin]="isLoading">⟳</span> Rafraîchir
-            </button>
+            <app-icon-button toolbar icon="refresh" tooltip="Rafraîchir"
+                             [loading]="isLoading" (clicked)="refresh()"></app-icon-button>
 
             <ng-template appCell="valeurScore" let-row="row">
               <strong [style.color]="getScoreColor(row.valeurScore)">{{ row.valeurScore | number:'1.0-0' }}/100</strong>
@@ -81,6 +83,32 @@ import { User } from '../../core/models/user.model';
           <div class="sc-item"><span>Décidé le</span><strong>{{ detailRow.decidedAt ? (detailRow.decidedAt | date:'dd/MM/yyyy HH:mm') : '—' }}</strong></div>
         </div>
 
+        <!-- Données client utilisées par le modèle (cohérent avec la page de validation) -->
+        <div class="sc-section cf-section">
+          <h4>Données client utilisées par le modèle</h4>
+          <div *ngIf="detailClientLoading" class="modal-state">Chargement des données client…</div>
+          <div *ngIf="!detailClientLoading && detailClient as c" class="cf-grid">
+            <div class="cf-item"><span>Âge</span><strong>{{ c.age }} ans</strong></div>
+            <div class="cf-item"><span>Situation pro.</span><strong>{{ formatSituationPro(c.situationPro) }}</strong></div>
+            <div class="cf-item"><span>Revenus mensuels</span><strong>{{ c.revenusMensuels | number:'1.0-0' }} DH</strong></div>
+            <div class="cf-item"><span>Charges mensuelles</span><strong>{{ c.chargesMensuelles | number:'1.0-0' }} DH</strong></div>
+            <div class="cf-item"><span>Taux d'endettement</span>
+              <strong [class.warn]="(c.tauxEndettement || 0) >= 50">{{ (c.tauxEndettement || 0) | number:'1.0-1' }}%</strong></div>
+            <div class="cf-item"><span>Plafond crédit renouv.</span><strong>{{ c.plafondCredit != null ? (c.plafondCredit | number:'1.0-0') + ' DH' : '—' }}</strong></div>
+            <div class="cf-item"><span>Solde utilisé</span><strong>{{ c.soldeCredit != null ? (c.soldeCredit | number:'1.0-0') + ' DH' : '—' }}</strong></div>
+            <div class="cf-item"><span>Utilisation crédit renouv.</span>
+              <strong [class.warn]="(c.utilisationCreditRenouvelable || 0) >= 70">{{ (c.utilisationCreditRenouvelable || 0) | number:'1.0-1' }}%</strong></div>
+            <div class="cf-item"><span>Historique financier</span><strong>{{ c.historiqueFinancier }}</strong></div>
+            <div class="cf-item"><span>Personnes à charge</span><strong>{{ c.nbPersonnesACharge ?? 0 }}</strong></div>
+            <div class="cf-item"><span>Retards 30–59 j</span><strong>{{ c.nbRetards3059Jours ?? 0 }}</strong></div>
+            <div class="cf-item"><span>Retards 60–89 j</span><strong>{{ c.nbRetards6089Jours ?? 0 }}</strong></div>
+            <div class="cf-item"><span>Retards ≥ 90 j</span>
+              <strong [class.warn]="(c.nbRetards90JoursPlus ?? 0) > 0">{{ c.nbRetards90JoursPlus ?? 0 }}</strong></div>
+            <div class="cf-item"><span>Crédits ouverts</span><strong>{{ c.nbCreditsOuverts ?? 0 }}</strong></div>
+            <div class="cf-item"><span>Prêts immobiliers</span><strong>{{ c.nbPretsImmobiliers ?? 0 }}</strong></div>
+          </div>
+        </div>
+
         <div class="sc-section" *ngIf="detail?.narration">
           <h4>Analyse explicative (IA)</h4>
           <p>{{ detail?.narration }}</p>
@@ -110,13 +138,13 @@ import { User } from '../../core/models/user.model';
         <!-- 4.1 : score en attente → aller directement le valider -->
         <button *ngIf="isSuperviseur && detailRow?.statut === 'EN_ATTENTE'"
                 type="button" class="btn btn-primary" (click)="goToValidation()">
-          ✓ Valider ce score
+          <app-icon name="fact_check" [size]="18"></app-icon> Valider ce score
         </button>
         <!-- 4.3 : recalcul UNIQUEMENT si le score courant est déjà validé ou rejeté -->
         <button *ngIf="isSuperviseur && (detailRow?.statut === 'VALIDE' || detailRow?.statut === 'REJETE')"
                 type="button" class="btn btn-secondary" (click)="recalculerFromDetail()"
                 [disabled]="recalculating">
-          <span class="refresh-glyph" [class.spin]="recalculating">⟳</span>
+          <app-icon name="refresh" [size]="18" [class.spin]="recalculating"></app-icon>
           {{ recalculating ? 'Recalcul…' : 'Recalculer le score' }}
         </button>
         <button type="button" class="btn btn-secondary" (click)="detailOpen = false">Fermer</button>
@@ -145,6 +173,13 @@ import { User } from '../../core/models/user.model';
     .sc-section h4 { margin: 0 0 10px 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--info); font-family: var(--font-body); }
     .sc-section p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--ink-700); font-family: var(--font-body); }
 
+    /* Panneau « données client utilisées par le modèle » (identique à la validation) */
+    .cf-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 24px; }
+    .cf-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; font-family: var(--font-body); }
+    .cf-item span { color: var(--ink-500); font-weight: 600; }
+    .cf-item strong { color: var(--ink-900); }
+    .cf-item strong.warn { color: var(--sal-orange); }
+
     .shap-list { display: flex; flex-direction: column; gap: 12px; }
     .shap-row { font-family: var(--font-body); }
     .shap-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 5px; }
@@ -172,6 +207,8 @@ export class ScoresListComponent implements OnInit {
   detailLoading = false;
   detailRow: ScoreListItem | null = null;
   detail: Score | null = null;
+  detailClient: Client | null = null;
+  detailClientLoading = false;
 
   private readonly featureLabels: Record<string, string> = {
     'age': 'Âge',
@@ -217,6 +254,7 @@ export class ScoresListComponent implements OnInit {
     private authService: AuthService,
     private clientService: ClientService,
     private toast: ToastService,
+    private confirm: ConfirmService,
     private route: ActivatedRoute,
     private router: Router,
   ) {}
@@ -232,9 +270,13 @@ export class ScoresListComponent implements OnInit {
         statut: (p['statut'] || '').toUpperCase() || undefined,
         niveauRisque: (p['risque'] || p['niveauRisque'] || '').toUpperCase() || undefined,
       };
+      // Deep-link ?open=<scoreId> : ouvre directement le détail (depuis l'historique client).
+      this.pendingOpenId = p['open'] ? String(p['open']) : null;
     });
     this.load();
   }
+
+  private pendingOpenId: string | null = null;
 
   get isSuperviseur(): boolean { return this.user?.role === 'SUPERVISEUR'; }
 
@@ -251,6 +293,12 @@ export class ScoresListComponent implements OnInit {
         this.scores = page.content;
         this.isLoading = false;
         if (notify) this.toast.info('Liste des scores actualisée.');
+        // Ouverture différée d'un score ciblé par ?open=… (deep-link depuis l'historique client)
+        if (this.pendingOpenId) {
+          const row = this.scores.find(s => String(s.id) === this.pendingOpenId);
+          this.pendingOpenId = null;
+          if (row) this.openDetail(row);
+        }
       },
       error: (err) => {
         console.error('Erreur lors du chargement des scores', err);
@@ -272,12 +320,21 @@ export class ScoresListComponent implements OnInit {
 
   /** 4.3 — Recalcule le score du client (autorisé uniquement si le score courant
    *  est VALIDE ou REJETE — jamais EN_ATTENTE). Réutilise l'endpoint existant. */
-  recalculerFromDetail(): void {
+  async recalculerFromDetail(): Promise<void> {
     const row = this.detailRow;
     if (!row || this.recalculating) return;
     if (row.statut !== 'VALIDE' && row.statut !== 'REJETE') return;
-    if (!confirm(`Recalculer le score de ${row.clientNomComplet} avec ses données actuelles ?\n` +
-                 'Le nouveau score repassera EN ATTENTE de validation.')) return;
+    const ok = await this.confirm.ask({
+      title: 'Recalculer le score ?',
+      message: `Un nouveau score sera calculé pour ${row.clientNomComplet} à partir de ses données actuelles.`,
+      bullets: [
+        'Le nouveau score remplacera le score courant.',
+        'Il repassera au statut EN ATTENTE.',
+        'Une nouvelle validation par un superviseur sera requise.',
+      ],
+      confirmLabel: 'Recalculer',
+    });
+    if (!ok) return;
     this.recalculating = true;
     this.clientService.recalculerScore(String(row.clientId)).subscribe({
       next: () => {
@@ -302,12 +359,29 @@ export class ScoresListComponent implements OnInit {
   openDetail(row: ScoreListItem): void {
     this.detailRow = row;
     this.detail = null;
+    this.detailClient = null;
     this.detailOpen = true;
     this.detailLoading = true;
     this.scoreService.getScore(row.id).subscribe({
       next: (s) => { this.detail = s; this.detailLoading = false; },
       error: () => { this.detailLoading = false; },
     });
+    // Données client utilisées par le modèle (#3) — chargées en parallèle.
+    this.detailClientLoading = true;
+    this.clientService.getClientById(String(row.clientId)).subscribe({
+      next: (c) => { this.detailClient = c; this.detailClientLoading = false; },
+      error: () => { this.detailClientLoading = false; },
+    });
+  }
+
+  formatSituationPro(s: string): string {
+    switch (s) {
+      case 'CDI': return 'Salarié (CDI)';
+      case 'CDD': return 'Salarié (CDD)';
+      case 'INDEPENDANT': return 'Indépendant';
+      case 'SANS_EMPLOI': return 'Sans emploi';
+      default: return s;
+    }
   }
 
   sortedExplications() {

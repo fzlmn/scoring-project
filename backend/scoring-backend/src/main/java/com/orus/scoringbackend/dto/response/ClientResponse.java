@@ -33,6 +33,10 @@ public class ClientResponse {
     private Integer nbPretsImmobiliers;
     private Integer nbPersonnesACharge;
     private Double utilisationCreditRenouvelable;
+    // Montants source (nullable pour les clients antérieurs à V6) — permettent au
+    // formulaire de retrouver les valeurs d'origine du crédit renouvelable.
+    private Double plafondCredit;
+    private Double soldeCredit;
 
     // ── Métadonnées ───────────────────────────────────────────────────────
     private LocalDateTime createdAt;

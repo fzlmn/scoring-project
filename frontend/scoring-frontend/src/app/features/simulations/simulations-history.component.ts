@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { SidebarComponent } from '../../shared/components/sidebar.component';
 import { BadgeComponent } from '../../shared/components/badge.component';
 import { PageHeaderComponent } from '../../shared/components/ui/page-header.component';
@@ -8,6 +8,7 @@ import { IconComponent } from '../../shared/components/ui/icon.component';
 import { ModalComponent } from '../../shared/components/ui/modal.component';
 import { DataTableComponent, CellTemplateDirective, TableColumn, TableRowAction } from '../../shared/components/ui/data-table.component';
 import { FilterBarComponent, FilterDef, FilterValues, applyTableFilters } from '../../shared/components/ui/filter-bar.component';
+import { IconButtonComponent } from '../../shared/components/ui/icon-button.component';
 import { SimulationService } from '../../core/services/simulation.service';
 import { ClientService } from '../../core/services/client.service';
 import { Simulation } from '../../core/models/simulation.model';
@@ -22,7 +23,7 @@ interface CmpRow { label: string; real: string; sim: string; changed: boolean; }
   imports: [
     CommonModule, RouterModule, SidebarComponent, BadgeComponent,
     PageHeaderComponent, IconComponent, ModalComponent,
-    DataTableComponent, CellTemplateDirective, FilterBarComponent,
+    DataTableComponent, CellTemplateDirective, FilterBarComponent, IconButtonComponent,
   ],
   template: `
     <div class="layout">
@@ -32,7 +33,7 @@ interface CmpRow { label: string; real: string; sim: string; changed: boolean; }
 
           <app-page-header title="Historique des simulations" subtitle="Toutes les simulations « what-if » enregistrées">
             <a routerLink="/simulations" class="btn btn-primary">
-              <app-icon name="add" [size]="18"></app-icon> Nouvelle simulation
+              <app-icon name="science" [size]="18"></app-icon> Nouvelle simulation
             </a>
           </app-page-header>
 
@@ -44,10 +45,8 @@ interface CmpRow { label: string; real: string; sim: string; changed: boolean; }
 
             <app-filter-bar toolbar [filters]="filterDefs" [values]="filterValues"
                             (valuesChange)="onFilters($event)"></app-filter-bar>
-            <button toolbar type="button" class="btn btn-secondary" (click)="refresh()"
-                    [disabled]="isLoading" title="Recharger l'historique (filtres conservés)">
-              <span class="refresh-glyph" [class.spin]="isLoading">⟳</span> Rafraîchir
-            </button>
+            <app-icon-button toolbar icon="refresh" tooltip="Rafraîchir"
+                             [loading]="isLoading" (clicked)="refresh()"></app-icon-button>
 
             <ng-template appCell="tauxEndettementSimule" let-row="row">{{ (row.tauxEndettementSimule || 0) | number:'1.0-1' }}%</ng-template>
             <ng-template appCell="scoreSimule" let-row="row">
@@ -180,16 +179,21 @@ export class SimulationsHistoryComponent implements OnInit {
     { key: 'createdAt', header: 'Date', sortable: true, type: 'date', dateFormat: 'dd/MM/yyyy HH:mm', format: (r) => r.createdAt || r.dateCreation, noSearch: true },
   ];
 
+  private pendingOpenId: string | null = null;
+
   constructor(
     private simulationService: SimulationService,
     private clientService: ClientService,
     private toast: ToastService,
+    private route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
     this.rowActions = [
       { label: 'Détail', icon: 'visibility', variant: 'primary', handler: (r) => this.openDetail(r) },
     ];
+    // Deep-link ?open=<simId> : ouvre directement le détail (depuis l'historique client).
+    this.pendingOpenId = this.route.snapshot.queryParamMap.get('open');
     this.load();
   }
 
@@ -200,6 +204,11 @@ export class SimulationsHistoryComponent implements OnInit {
         this.simulations = data;
         this.isLoading = false;
         if (notify) this.toast.info('Historique des simulations actualisé.');
+        if (this.pendingOpenId) {
+          const row = this.simulations.find(s => String(s.id) === this.pendingOpenId);
+          this.pendingOpenId = null;
+          if (row) this.openDetail(row);
+        }
       },
       error: (err) => {
         console.error('Erreur chargement simulations', err);
@@ -255,6 +264,11 @@ export class SimulationsHistoryComponent implements OnInit {
     push('Crédits ouverts', c?.nbCreditsOuverts, p['nbCreditsOuverts'], int);
     push('Prêts immobiliers', c?.nbPretsImmobiliers, p['nbPretsImmobiliers'], int);
     push('Personnes à charge', c?.nbPersonnesACharge, p['nbPersonnesACharge'], int);
+    // Crédit renouvelable : trio complet plafond / solde / utilisation, réel ET simulé (#1, #2).
+    // Toujours affiché (— si non renseigné) ; les montants simulés viennent des paramètres
+    // stockés (simulations antérieures à ce changement : montants absents → —).
+    push('Plafond crédit renouv.', c?.plafondCredit, p['plafondCredit'], dh);
+    push('Solde utilisé', c?.soldeCredit, p['soldeCredit'], dh);
     push('Utilisation crédit renouv.', c?.utilisationCreditRenouvelable, p['utilisationCreditRenouvelable'], pct);
     return rows;
   }

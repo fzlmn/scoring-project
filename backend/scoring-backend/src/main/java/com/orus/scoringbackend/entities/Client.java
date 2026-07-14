@@ -89,6 +89,17 @@ public class Client {
     @Builder.Default
     private Double utilisationCreditRenouvelable = 0.0;
 
+    /**
+     * Plafond du crédit renouvelable en DH (montant source, nullable).
+     * Conservé pour retrouver les valeurs d'origine (modification, simulation).
+     */
+    @Column(name = "plafond_credit")
+    private Double plafondCredit;
+
+    /** Solde utilisé du crédit renouvelable en DH (montant source, nullable). */
+    @Column(name = "solde_credit")
+    private Double soldeCredit;
+
     // ── Relations ─────────────────────────────────────────────────────────
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -112,6 +123,7 @@ public class Client {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
         calculerTauxEndettement();
+        calculerUtilisationCredit();
         initialiserDefauts();
     }
 
@@ -119,6 +131,7 @@ public class Client {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
         calculerTauxEndettement();
+        calculerUtilisationCredit();
     }
 
     public void calculerTauxEndettement() {
@@ -126,6 +139,21 @@ public class Client {
             this.tauxEndettement = (chargesMensuelles / revenusMensuels) * 100;
         } else {
             this.tauxEndettement = 0.0;
+        }
+    }
+
+    /**
+     * Recalcule le taux d'utilisation à partir du plafond et du solde, quand ils
+     * sont renseignés (source de vérité). Formule identique au frontend :
+     * min(solde / plafond × 100, 100), arrondie à 2 décimales. Si le plafond n'est
+     * pas fourni (client antérieur à V6 ou sans crédit renouvelable), le pourcentage
+     * déjà présent est conservé — le payload ML reste inchangé dans tous les cas.
+     */
+    public void calculerUtilisationCredit() {
+        if (plafondCredit != null && plafondCredit > 0) {
+            double solde = soldeCredit != null ? soldeCredit : 0.0;
+            double ratio = Math.min((solde / plafondCredit) * 100.0, 100.0);
+            this.utilisationCreditRenouvelable = Math.round(ratio * 100.0) / 100.0;
         }
     }
 

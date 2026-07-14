@@ -34,4 +34,6 @@ export interface SimulationRequest {
   nbPretsImmobiliers?: number;
   nbPersonnesACharge?: number;
   utilisationCreditRenouvelable?: number;
+  plafondCredit?: number | null;
+  soldeCredit?: number | null;
 }

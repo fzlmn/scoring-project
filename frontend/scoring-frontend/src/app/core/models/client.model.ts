@@ -21,6 +21,9 @@ export interface Client {
   nbPretsImmobiliers?: number;
   nbPersonnesACharge?: number;
   utilisationCreditRenouvelable?: number;
+  // Montants source du crédit renouvelable (permettent de retrouver les valeurs saisies)
+  plafondCredit?: number | null;
+  soldeCredit?: number | null;
 
   // ── Score et métadonnées ─────────────────────────────────────────────
   dernierScore?: Score | null;

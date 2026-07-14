@@ -2,7 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { IconComponent } from '../../shared/components/ui/icon.component';
+import { IconButtonComponent } from '../../shared/components/ui/icon-button.component';
+import { BackButtonComponent } from '../../shared/components/ui/back-button.component';
 import { ToastService } from '../../core/services/toast.service';
 import { SidebarComponent } from '../../shared/components/sidebar.component';
 import { BadgeComponent } from '../../shared/components/badge.component';
@@ -16,22 +17,21 @@ import { Client } from '../../core/models/client.model';
 @Component({
   selector: 'app-scores-validation',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, SidebarComponent, BadgeComponent, ScoreGaugeComponent, IconComponent],
+  imports: [CommonModule, FormsModule, RouterModule, SidebarComponent, BadgeComponent, ScoreGaugeComponent, IconButtonComponent, BackButtonComponent],
   template: `
     <div class="layout">
       <app-sidebar></app-sidebar>
       <div class="main-content">        <div class="content">
+
+          <div class="back-wrap"><app-back-button [fallback]="'/scores'"></app-back-button></div>
 
           <div class="page-header">
             <h2>Validation des Scores</h2>
             <span class="count-badge" *ngIf="scoresEnAttente.length > 0">
               {{ scoresEnAttente.length }} en attente
             </span>
-            <button class="refresh-btn" (click)="refresh()" [disabled]="isRefreshing"
-                    title="Rafraîchir la file d'attente">
-              <app-icon name="refresh" [size]="16" [class.spin]="isRefreshing"></app-icon>
-              Rafraîchir
-            </button>
+            <app-icon-button class="header-refresh" icon="refresh" tooltip="Rafraîchir la file d'attente"
+                             [loading]="isRefreshing" (clicked)="refresh()"></app-icon-button>
           </div>
 
           <div class="validation-container">
@@ -51,9 +51,11 @@ import { Client } from '../../core/models/client.model';
                   </a>
                 </div>
 
-                <!-- Jauge -->
+                <!-- Jauge : interprétation métier sous la jauge (le niveau de risque
+                     détaillé reste dans le tableau ci-dessous — pas de doublon). -->
                 <div class="gauge-section">
-                  <app-score-gauge [score]="selectedScore.valeurScore" [niveauRisque]="selectedScore.niveauRisque"></app-score-gauge>
+                  <app-score-gauge [score]="selectedScore.valeurScore" [niveauRisque]="selectedScore.niveauRisque"
+                                   [label]="potentielLabel(selectedScore.niveauRisque)"></app-score-gauge>
                 </div>
 
                 <!-- Infos score -->
@@ -80,6 +82,33 @@ import { Client } from '../../core/models/client.model';
                   <div class="info-row">
                     <span class="label">Date de calcul</span>
                     <span>{{ selectedScore.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+                  </div>
+                </div>
+
+                <!-- Données client utilisées par le modèle (#7 : valider sans quitter la page) -->
+                <div class="client-features">
+                  <h4>Données client utilisées par le modèle</h4>
+                  <div *ngIf="loadingClient" class="cf-loading">Chargement des données client…</div>
+                  <div *ngIf="!loadingClient && selectedClient as c" class="cf-grid">
+                    <div class="cf-item"><span>Âge</span><strong>{{ c.age }} ans</strong></div>
+                    <div class="cf-item"><span>Situation pro.</span><strong>{{ formatSituationPro(c.situationPro) }}</strong></div>
+                    <div class="cf-item"><span>Revenus mensuels</span><strong>{{ c.revenusMensuels | number:'1.0-0' }} DH</strong></div>
+                    <div class="cf-item"><span>Charges mensuelles</span><strong>{{ c.chargesMensuelles | number:'1.0-0' }} DH</strong></div>
+                    <div class="cf-item"><span>Taux d'endettement</span>
+                      <strong [class.warn]="(c.tauxEndettement || 0) >= 50">{{ (c.tauxEndettement || 0) | number:'1.0-1' }}%</strong></div>
+                    <!-- Crédit renouvelable : montants source (toujours affichés, — si absent) + % calculé -->
+                    <div class="cf-item"><span>Plafond crédit renouv.</span><strong>{{ c.plafondCredit != null ? (c.plafondCredit | number:'1.0-0') + ' DH' : '—' }}</strong></div>
+                    <div class="cf-item"><span>Solde utilisé</span><strong>{{ c.soldeCredit != null ? (c.soldeCredit | number:'1.0-0') + ' DH' : '—' }}</strong></div>
+                    <div class="cf-item"><span>Utilisation crédit renouv.</span>
+                      <strong [class.warn]="(c.utilisationCreditRenouvelable || 0) >= 70">{{ (c.utilisationCreditRenouvelable || 0) | number:'1.0-1' }}%</strong></div>
+                    <div class="cf-item"><span>Historique financier</span><strong>{{ c.historiqueFinancier }}</strong></div>
+                    <div class="cf-item"><span>Personnes à charge</span><strong>{{ c.nbPersonnesACharge ?? 0 }}</strong></div>
+                    <div class="cf-item"><span>Retards 30–59 j</span><strong>{{ c.nbRetards3059Jours ?? 0 }}</strong></div>
+                    <div class="cf-item"><span>Retards 60–89 j</span><strong>{{ c.nbRetards6089Jours ?? 0 }}</strong></div>
+                    <div class="cf-item"><span>Retards ≥ 90 j</span>
+                      <strong [class.warn]="(c.nbRetards90JoursPlus ?? 0) > 0">{{ c.nbRetards90JoursPlus ?? 0 }}</strong></div>
+                    <div class="cf-item"><span>Crédits ouverts</span><strong>{{ c.nbCreditsOuverts ?? 0 }}</strong></div>
+                    <div class="cf-item"><span>Prêts immobiliers</span><strong>{{ c.nbPretsImmobiliers ?? 0 }}</strong></div>
                   </div>
                 </div>
 
@@ -176,10 +205,12 @@ import { Client } from '../../core/models/client.model';
     .layout { display: flex; min-height: 100vh; background: #F5F5F7; }
     .main-content { flex: 1; margin-left: var(--sidebar-width); }
     .content { padding: 30px; max-width: 1400px; margin: 0 auto; }
+    .back-wrap { margin-bottom: 14px; }
 
     .page-header {
       display: flex; align-items: center; gap: 12px; margin-bottom: 24px;
     }
+    .header-refresh { margin-left: auto; }
 
     h2 {
       font-size: 24px; font-weight: 700; color: #1A1A2E;
@@ -220,6 +251,15 @@ import { Client } from '../../core/models/client.model';
       border: 1px solid #E5E5EA;
     }
 
+    /* #11 : la file d'attente reste à hauteur d'écran et défile indépendamment,
+       sans jamais allonger la page même avec beaucoup de scores en attente. */
+    .scores-queue {
+      position: sticky; top: 20px;
+      max-height: calc(100vh - 40px);
+      display: flex; flex-direction: column;
+    }
+    .scores-queue h3 { flex-shrink: 0; }
+
     h3 {
       margin: 0 0 18px 0; font-size: 15px; font-weight: 700;
       color: #1A1A2E; font-family: 'Sora', sans-serif;
@@ -257,6 +297,23 @@ import { Client } from '../../core/models/client.model';
     .info-row:last-child { border-bottom: none; }
 
     .label { font-weight: 600; color: #666; }
+
+    /* ── Données client (features ML) ── */
+    .client-features { margin-bottom: 16px; }
+    .client-features h4 {
+      margin: 0 0 10px 0; font-size: 11px; font-weight: 700; color: #E8621A;
+      text-transform: uppercase; letter-spacing: 0.5px; font-family: 'DM Sans', sans-serif;
+    }
+    .cf-loading { padding: 14px; text-align: center; color: #888; font-size: 12px; font-family: 'DM Sans', sans-serif; }
+    .cf-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 16px; }
+    .cf-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 7px 10px; background: #F8F9FA; border-radius: 6px;
+      font-size: 12px; font-family: 'DM Sans', sans-serif;
+    }
+    .cf-item span { color: #888; }
+    .cf-item strong { color: #1A1A2E; }
+    .cf-item strong.warn { color: #D94040; }
 
     /* ── Narration ── */
     .narrative {
@@ -340,7 +397,7 @@ import { Client } from '../../core/models/client.model';
     }
 
     /* ── Queue ── */
-    .queue-list { display: flex; flex-direction: column; gap: 8px; }
+    .queue-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1; padding-right: 4px; }
 
     .queue-item {
       padding: 12px 14px;
@@ -403,6 +460,8 @@ import { Client } from '../../core/models/client.model';
 export class ScoresValidationComponent implements OnInit {
   scoresEnAttente: Score[] = [];
   selectedScore: Score | null = null;
+  selectedClient: Client | null = null;
+  loadingClient = false;
   clientsMap: Map<string, string> = new Map(); // clientId → "Prénom Nom"
   isActing = false;
   isRefreshing = false;
@@ -510,6 +569,37 @@ export class ScoresValidationComponent implements OnInit {
   selectScore(score: Score): void {
     this.selectedScore = score;
     this.actionMessage = '';
+    // Charge les données client utilisées par le modèle (#7) — validation sans quitter la page.
+    this.selectedClient = null;
+    if (score.clientId) {
+      this.loadingClient = true;
+      this.clientService.getClientById(String(score.clientId)).subscribe({
+        next: (c) => { this.selectedClient = c; this.loadingClient = false; },
+        error: () => { this.loadingClient = false; },
+      });
+    }
+  }
+
+  formatSituationPro(s: string): string {
+    switch (s) {
+      case 'CDI': return 'Salarié (CDI)';
+      case 'CDD': return 'Salarié (CDD)';
+      case 'INDEPENDANT': return 'Indépendant';
+      case 'SANS_EMPLOI': return 'Sans emploi';
+      default: return s;
+    }
+  }
+
+  /** Interprétation métier affichée sous la jauge (#3) : un risque faible = fort
+   *  potentiel client, un risque élevé = faible potentiel. Évite de répéter le
+   *  « niveau de risque » déjà présent dans le tableau de détail. */
+  potentielLabel(niveau: string): string {
+    switch (niveau) {
+      case 'FAIBLE': return 'Client à fort potentiel';
+      case 'MOYEN':  return 'Client à potentiel moyen';
+      case 'ELEVE':  return 'Client à faible potentiel';
+      default:       return '';
+    }
   }
 
   validerScore(statut: 'VALIDE' | 'REJETE'): void {

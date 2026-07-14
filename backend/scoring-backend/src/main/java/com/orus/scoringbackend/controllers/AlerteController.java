@@ -50,4 +50,13 @@ public class AlerteController {
                                                        @Valid @RequestBody AlerteUpdateRequest request) {
         return ResponseEntity.ok(alerteService.updateStatut(id, request));
     }
+
+    /** Marque toutes les alertes non lues comme LUES (« vues »). Appelé à l'ouverture
+     *  de la page Alertes — comportement notification : consulter = marquer lu. */
+    @PatchMapping("/marquer-vues")
+    @PreAuthorize("hasAnyRole('SUPERVISEUR','ADMINISTRATEUR')")
+    public ResponseEntity<Map<String, Object>> marquerVues() {
+        int n = alerteService.marquerToutesVues();
+        return ResponseEntity.ok(Map.of("marquees", n));
+    }
 }

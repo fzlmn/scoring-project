@@ -67,6 +67,9 @@ export class ScoreGaugeComponent {
   @Input() score: number = 0;
   /** Niveau calibré par le modèle (source de vérité si fourni). */
   @Input() niveauRisque?: 'FAIBLE' | 'MOYEN' | 'ELEVE';
+  /** Libellé personnalisé sous la jauge (ex. interprétation métier). Si absent,
+   *  le niveau de risque est affiché. */
+  @Input() label?: string;
 
   getArcPath(): string {
     const radius = 80;
@@ -96,6 +99,7 @@ export class ScoreGaugeComponent {
   }
 
   getRiskLabel(): string {
+    if (this.label) return this.label;
     switch (this.niveauRisque) {
       case 'ELEVE':  return 'Risque Élevé';
       case 'MOYEN':  return 'Risque Moyen';

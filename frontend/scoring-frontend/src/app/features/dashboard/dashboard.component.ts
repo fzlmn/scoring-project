@@ -18,6 +18,7 @@ import { ClientService } from '../../core/services/client.service';
 import { AuthService } from '../../core/services/auth.service';
 import { AlerteService } from '../../core/services/alerte.service';
 import { ToastService } from '../../core/services/toast.service';
+import { BRANDING } from '../../core/branding';
 import { CategoryCount, DashboardData, DecisionPoint } from '../../core/models/dashboard.model';
 import { Client } from '../../core/models/client.model';
 import { User } from '../../core/models/user.model';
@@ -45,7 +46,7 @@ interface KpiCard {
         <div class="content" *ngIf="dashboardData as d">
 
           <div class="print-header">
-            <div class="ph-brand">Salafin<span>Scoring</span></div>
+            <div class="ph-brand">{{ brand.namePrimary }}<span>{{ brand.nameAccent }}</span></div>
             <div class="ph-meta">
               <div class="ph-title">{{ title }}</div>
               <div>{{ subtitle }}</div>
@@ -112,30 +113,12 @@ interface KpiCard {
                 <ng-container *ngTemplateOutlet="dualbars; context: { $implicit: data }"></ng-container>
               </ng-template>
             </app-dashboard-widget>
-            <app-dashboard-widget title="Volume des scores calculés" [wide]="true"
-                                  [loader]="loadScores" [defaultPeriode]="'jour'">
-              <ng-template let-data="data">
-                <ng-container *ngTemplateOutlet="vbars; context: { $implicit: data, accent: 'var(--chart-1)' }"></ng-container>
-              </ng-template>
-            </app-dashboard-widget>
             <app-dashboard-widget title="Évolution des alertes" [wide]="true"
                                   [loader]="loadAlertes" [defaultPeriode]="'jour'">
               <ng-template let-data="data">
                 <ng-container *ngTemplateOutlet="vbars; context: { $implicit: data, accent: 'var(--danger)' }"></ng-container>
               </ng-template>
             </app-dashboard-widget>
-            <app-chart-card title="Alertes récentes">
-              <div *ngIf="d.alertesRecentes?.length; else noAlerts" class="alerts-list">
-                <div *ngFor="let alerte of d.alertesRecentes" class="alert-item">
-                  <app-badge [label]="alerte.criticite" [variant]="getBadgeVariant(alerte.criticite)"></app-badge>
-                  <div class="alert-content">
-                    <p class="alert-type">{{ formatType(alerte.typeAlerte) }}</p>
-                    <p class="alert-desc">{{ alerte.description }}</p>
-                  </div>
-                </div>
-              </div>
-              <ng-template #noAlerts><app-empty-state icon="notifications_off" message="Aucune alerte"></app-empty-state></ng-template>
-            </app-chart-card>
           </div>
 
           <!-- ══════════ ANALYSTE (analytique, lecture seule) ══════════ -->
@@ -177,18 +160,6 @@ interface KpiCard {
             </app-table-card>
           </div>
 
-          <!-- ── Actions rapides ── -->
-          <div class="section no-print" *ngIf="isConseiller || isSuperviseur">
-            <div class="card quick-actions">
-              <h3>Actions rapides</h3>
-              <div class="qa-grid">
-                <a *ngIf="isConseiller" class="qa-btn" routerLink="/clients/nouveau"><app-icon name="person_add" [size]="20"></app-icon><span>Nouveau client</span></a>
-                <a *ngIf="isSuperviseur" class="qa-btn" routerLink="/scores/validation"><app-icon name="fact_check" [size]="20"></app-icon><span>File de validation</span></a>
-                <a *ngIf="isSuperviseur" class="qa-btn" routerLink="/clients" [queryParams]="{ risque: 'ELEVE' }"><app-icon name="warning" [size]="20"></app-icon><span>Clients à haut risque</span></a>
-                <button *ngIf="isSuperviseur" type="button" class="qa-btn" (click)="generateReport()"><app-icon name="description" [size]="20"></app-icon><span>Générer un rapport</span></button>
-              </div>
-            </div>
-          </div>
 
         </div>
       </div>
@@ -329,7 +300,7 @@ interface KpiCard {
 
     .print-header { display: none; }
     .print-header .ph-brand { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--ink-900); }
-    .print-header .ph-brand span { color: var(--sal-orange); margin-left: 2px; }
+    .print-header .ph-brand span { color: var(--sal-orange); }
     .print-header .ph-meta { font-size: 12px; color: var(--ink-500); margin-top: 4px; }
     .print-header .ph-title { font-weight: 600; color: var(--ink-900); font-size: 14px; }
 
@@ -366,6 +337,7 @@ export class DashboardComponent implements OnInit {
   readonly loadClientsEvolution = (p: Periode) => this.evoService.clients(p);
 
   isRefreshing = false;
+  readonly brand = BRANDING;
 
   constructor(
     private dashboardService: DashboardService,
@@ -494,13 +466,12 @@ export class DashboardComponent implements OnInit {
           { icon: 'remove', tint: 'var(--warning-tint)', iconColor: 'var(--warning)', label: 'Risque moyen',   value: d.clientsMoyenRisque ?? 0,  link: '/clients', queryParams: { risque: 'MOYEN' } },
           { icon: 'warning', tint: 'var(--danger-tint)', iconColor: 'var(--danger)',  label: 'Risque élevé',   value: d.clientsEleveRisque ?? 0,  link: '/clients', queryParams: { risque: 'ELEVE' } },
         ];
-      default: // SUPERVISEUR
+      default: // SUPERVISEUR — KPIs opérationnels : charge de validation + risque à traiter
         return [
           { icon: 'hourglass_empty', tint: 'var(--warning-tint)', iconColor: 'var(--warning)', label: 'Décisions en attente',  value: d.decisionsEnAttente ?? 0, link: '/scores', queryParams: { statut: 'EN_ATTENTE' } },
-          { icon: 'check_circle',    tint: 'var(--success-tint)', iconColor: 'var(--success)', label: 'Validés',               value: this.validationTotals.valides, link: '/scores', queryParams: { statut: 'VALIDE' } },
-          { icon: 'block',           tint: 'var(--danger-tint)',  iconColor: 'var(--danger)',  label: 'Rejetés',               value: this.validationTotals.rejetes, link: '/scores', queryParams: { statut: 'REJETE' } },
-          { icon: 'percent',         tint: 'var(--info-tint)',    iconColor: 'var(--info)',    label: 'Taux de validation',    value: this.tauxValidation + '%' },
+          { icon: 'refresh',         tint: 'var(--info-tint)',    iconColor: 'var(--info)',    label: 'Recalculs à valider', value: d.scoresRecalculesEnAttente ?? 0, link: '/scores', queryParams: { statut: 'EN_ATTENTE' } },
           { icon: 'warning',         tint: 'var(--danger-tint)',  iconColor: 'var(--danger)',  label: 'Clients à haut risque', value: d.clientsEleveRisque ?? 0, link: '/clients', queryParams: { risque: 'ELEVE' } },
+          { icon: 'percent',         tint: 'var(--info-tint)',    iconColor: 'var(--info)',    label: 'Taux de validation',    value: this.tauxValidation + '%' },
         ];
     }
   }

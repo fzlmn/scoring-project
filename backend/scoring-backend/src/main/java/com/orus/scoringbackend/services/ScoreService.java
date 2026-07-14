@@ -14,6 +14,7 @@ import com.orus.scoringbackend.exceptions.ResourceNotFoundException;
 import com.orus.scoringbackend.repositories.ScoreRepository;
 import com.orus.scoringbackend.repositories.specifications.ScoreSpecifications;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class ScoreService {
 
@@ -84,6 +86,14 @@ public class ScoreService {
         score.setStatut(request.getStatut());
         score.setDecidedAt(LocalDateTime.now());
         score = scoreRepository.save(score);
+
+        // Résoudre automatiquement les alertes rattachées à ce score (validé OU rejeté) :
+        // le superviseur a traité le dossier → l'alerte passe TRAITEE (best-effort).
+        try {
+            alerteService.marquerTraiteesPourScore(scoreId);
+        } catch (Exception e) {
+            log.warn("Résolution des alertes du score {} ignorée : {}", scoreId, e.getMessage());
+        }
 
         if (request.getStatut() == StatutScore.VALIDE) {
             alerteService.verifierEtGenererAlertes(score);

@@ -156,7 +156,8 @@ public class AlerteService {
     }
 
     public List<AlerteResponse> getAllAlertes() {
-        return alerteRepository.findAll().stream()
+        // Tri par défaut : les alertes les plus récentes en premier (createdAt décroissant).
+        return alerteRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(this::mapToResponse).toList();
     }
 
@@ -175,6 +176,41 @@ public class AlerteService {
                 .orElseThrow(() -> new ResourceNotFoundException("Alerte introuvable : " + id));
         alerte.setStatut(request.getStatut());
         return mapToResponse(alerteRepository.save(alerte));
+    }
+
+    /**
+     * Marque toutes les alertes NON_LUE comme LUE (« vues »). Le fait de consulter la
+     * page Alertes suffit à les marquer lues — elles restent visibles, perdent juste
+     * leur mise en évidence « non lu ». La résolution (TRAITEE) reste une action séparée.
+     */
+    @Transactional
+    public int marquerToutesVues() {
+        List<Alerte> nonLues = alerteRepository.findByStatutOrderByCreatedAtDesc(StatutAlerte.NON_LUE);
+        nonLues.forEach(a -> a.setStatut(StatutAlerte.LUE));
+        alerteRepository.saveAll(nonLues);
+        return nonLues.size();
+    }
+
+    /** Marque comme TRAITEE (résolue) toute alerte rattachée à un score — appelé lors
+     *  de la validation / du rejet du score (résolution automatique). Best-effort. */
+    @Transactional
+    public void marquerTraiteesPourScore(Long scoreId) {
+        if (scoreId == null) return;
+        List<Alerte> a = alerteRepository.findByScoreId(scoreId).stream()
+                .filter(x -> x.getStatut() != StatutAlerte.TRAITEE).toList();
+        a.forEach(x -> x.setStatut(StatutAlerte.TRAITEE));
+        alerteRepository.saveAll(a);
+    }
+
+    /** Marque comme TRAITEE toutes les alertes en cours d'un client — appelé lors d'un
+     *  recalcul, qui réévalue le dossier et régénère éventuellement de nouvelles alertes. */
+    @Transactional
+    public void marquerTraiteesPourClient(Long clientId) {
+        if (clientId == null) return;
+        List<Alerte> a = alerteRepository.findByClientId(clientId).stream()
+                .filter(x -> x.getStatut() != StatutAlerte.TRAITEE).toList();
+        a.forEach(x -> x.setStatut(StatutAlerte.TRAITEE));
+        alerteRepository.saveAll(a);
     }
 
     private AlerteResponse mapToResponse(Alerte a) {

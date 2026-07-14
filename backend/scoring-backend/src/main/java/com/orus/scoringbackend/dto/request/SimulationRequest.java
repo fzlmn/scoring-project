@@ -48,4 +48,12 @@ public class SimulationRequest {
 
     @PositiveOrZero @DecimalMax("100.0")
     private Double utilisationCreditRenouvelable;
+
+    // Montants source du crédit renouvelable simulé (optionnels) : conservés dans
+    // les paramètres de la simulation pour afficher le trio complet dans l'historique.
+    @PositiveOrZero
+    private Double plafondCredit;
+
+    @PositiveOrZero
+    private Double soldeCredit;
 }

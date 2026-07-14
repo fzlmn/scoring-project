@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 22" role="img" aria-label="Salafin">
-  <!-- Placeholder wordmark — remplacer par le logo officiel Salafin. -->
-  <g fill="none">
-    <rect x="0.5" y="3" width="15" height="15" rx="4" fill="#E8621A"/>
-    <path d="M5 10.5 L7.6 13 L11.5 8" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
-  <text x="22" y="16" font-family="Sora, 'DM Sans', sans-serif" font-size="14" font-weight="700" letter-spacing="0.3" fill="#FFFFFF">Salafin</text>
-</svg>

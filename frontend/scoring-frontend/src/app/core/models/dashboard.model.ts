@@ -21,6 +21,7 @@ export interface DashboardData {
 
   // ── Superviseur (pilotage) ──────────────────────────────────────────────
   decisionsEnAttente: number;
+  scoresRecalculesEnAttente: number; // recalculs en attente de (re)validation
   scoresValidesAujourdhui: number;
   scoresRejetesAujourdhui: number;
   clientsHautRisque: number;

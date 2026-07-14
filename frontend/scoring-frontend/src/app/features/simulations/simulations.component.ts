@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { SidebarComponent } from '../../shared/components/sidebar.component';
 import { PageHeaderComponent } from '../../shared/components/ui/page-header.component';
 import { IconComponent } from '../../shared/components/ui/icon.component';
+import { BackButtonComponent } from '../../shared/components/ui/back-button.component';
 import { SimulationService } from '../../core/services/simulation.service';
 import { ClientService } from '../../core/services/client.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -28,12 +29,14 @@ interface SimForm {
 @Component({
   selector: 'app-simulations',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, SidebarComponent, PageHeaderComponent, IconComponent],
+  imports: [CommonModule, FormsModule, RouterModule, SidebarComponent, PageHeaderComponent, IconComponent, BackButtonComponent],
   template: `
     <div class="layout">
       <app-sidebar></app-sidebar>
       <div class="main-content">
         <div class="content">
+
+          <div class="back-wrap"><app-back-button [fallback]="'/simulations/historique'"></app-back-button></div>
 
           <app-page-header title="Simulations de scénarios"
             subtitle="Modifiez les données financières et de scoring d'un client pour observer l'impact sur le score. Les données réelles ne sont jamais modifiées.">
@@ -120,7 +123,7 @@ interface SimForm {
                   </div>
                 </div>
                 <div class="hint">Le taux est calculé automatiquement (solde ÷ plafond). Tant que le plafond n'est pas saisi,
-                  la valeur actuelle du client ({{ selectedClient?.utilisationCreditRenouvelable ?? 0 | number:'1.0-2' }} %) est conservée.</div>
+                  la valeur actuelle du client ({{ selectedClient.utilisationCreditRenouvelable ?? 0 | number:'1.0-2' }} %) est conservée.</div>
 
                 <!-- Crédits & prêts -->
                 <div class="section-label">Crédits &amp; prêts</div>
@@ -230,6 +233,7 @@ interface SimForm {
     .layout { display: flex; min-height: 100vh; background: var(--bg); }
     .main-content { flex: 1; margin-left: var(--sidebar-width); }
     .content { padding: var(--space-7); max-width: 1320px; margin: 0 auto; }
+    .back-wrap { margin-bottom: var(--space-4); }
 
     .sim-layout { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: var(--space-6); align-items: start; }
 
@@ -373,8 +377,10 @@ export class SimulationsComponent implements OnInit {
     this.clientService.getClientById(clientId).subscribe({
       next: (client) => {
         this.selectedClient = client;
-        this.simPlafond = 0;
-        this.simSolde = 0;
+        // Restaure les montants source du client s'ils existent (depuis V6) —
+        // le superviseur repart des vraies valeurs plutôt que de zéro.
+        this.simPlafond = client.plafondCredit ?? 0;
+        this.simSolde = client.soldeCredit ?? 0;
         this.form = {
           revenusSimules: client.revenusMensuels,
           chargesSimulees: client.chargesMensuelles,
@@ -425,7 +431,13 @@ export class SimulationsComponent implements OnInit {
     this.errorMessage = '';
     this.successMessage = '';
 
-    this.simulationService.createSimulation({ clientId: this.selectedClientId, ...this.form }).subscribe({
+    // Montants source du crédit renouvelable simulé (envoyés en plus du % calculé) :
+    // permettent d'afficher le trio complet plafond/solde/utilisation dans l'historique.
+    const plafondCredit = Number(this.simPlafond) > 0 ? Number(this.simPlafond) : null;
+    const soldeCredit = Number(this.simPlafond) > 0 ? Number(this.simSolde) : null;
+    this.simulationService.createSimulation({
+      clientId: this.selectedClientId, ...this.form, plafondCredit, soldeCredit,
+    }).subscribe({
       next: (sim) => {
         this.isLoading = false;
         this.lastSimulation = sim;

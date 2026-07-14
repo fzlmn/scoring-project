@@ -15,6 +15,7 @@ import { DashboardPeriodService } from '../../core/services/dashboard-period.ser
 import { bucketCategory, Cat } from '../../core/utils/chart-aggregation';
 import { User } from '../../core/models/user.model';
 import { AuditLog } from '../../core/models/audit-log.model';
+import { BRANDING } from '../../core/branding';
 
 interface KpiCard { icon: string; tint: string; iconColor: string; label: string; value: number | string; link?: string; }
 
@@ -34,7 +35,7 @@ interface KpiCard { icon: string; tint: string; iconColor: string; label: string
         <div class="content">
 
           <div class="print-header">
-            <div class="ph-brand">Salafin<span>Scoring</span></div>
+            <div class="ph-brand">{{ brand.namePrimary }}<span>{{ brand.nameAccent }}</span></div>
             <div class="ph-meta">
               <div class="ph-title">Tableau de bord — Administration</div>
               <div>Généré le {{ now | date:'dd/MM/yyyy à HH:mm' }} — Administrateur</div>
@@ -160,7 +161,7 @@ interface KpiCard { icon: string; tint: string; iconColor: string; label: string
 
     .print-header { display: none; }
     .print-header .ph-brand { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--ink-900); }
-    .print-header .ph-brand span { color: var(--sal-orange); margin-left: 2px; }
+    .print-header .ph-brand span { color: var(--sal-orange); }
     .print-header .ph-meta { font-size: 12px; color: var(--ink-500); margin-top: 4px; }
     .print-header .ph-title { font-weight: 600; color: var(--ink-900); font-size: 14px; }
 
@@ -182,6 +183,7 @@ export class AdminDashboardComponent implements OnInit {
   users: User[] = [];
   auditLogs: AuditLog[] = [];
   usersById = new Map<string, User>();
+  readonly brand = BRANDING;
   now = new Date();
   periode: Periode = 'jour';
 

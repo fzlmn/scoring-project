@@ -5,23 +5,29 @@ import { SidebarComponent } from '../../shared/components/sidebar.component';
 import { BadgeComponent } from '../../shared/components/badge.component';
 import { BackButtonComponent } from '../../shared/components/ui/back-button.component';
 import { IconComponent } from '../../shared/components/ui/icon.component';
+import { HistoryModalComponent, HistoryColumn } from '../../shared/components/ui/history-modal.component';
 import { ClientService } from '../../core/services/client.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
+import { ScoreService } from '../../core/services/score.service';
+import { SimulationService } from '../../core/services/simulation.service';
 import { Client } from '../../core/models/client.model';
+import { Score } from '../../core/models/score.model';
+import { Simulation } from '../../core/models/simulation.model';
 import { User } from '../../core/models/user.model';
 
 @Component({
   selector: 'app-client-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, SidebarComponent, BadgeComponent, BackButtonComponent, IconComponent],
+  imports: [CommonModule, RouterModule, SidebarComponent, BadgeComponent, BackButtonComponent, IconComponent, HistoryModalComponent],
   template: `
     <div class="layout">
       <app-sidebar></app-sidebar>
       <div class="main-content">        <div class="content" *ngIf="client; else loading">
 
           <div class="page-header">
-            <div class="back-wrap"><app-back-button [fallback]="'/clients'" label="Retour à la liste"></app-back-button></div>
+            <div class="back-wrap"><app-back-button [fallback]="'/clients'"></app-back-button></div>
             <div class="header-row">
               <h2>{{ client.prenom }} {{ client.nom }}</h2>
               <div class="header-actions">
@@ -36,7 +42,14 @@ import { User } from '../../core/models/user.model';
                   *ngIf="user?.role === 'SUPERVISEUR' && client.dernierScore?.statut === 'EN_ATTENTE'"
                   (click)="goToValidation()"
                   class="btn btn-primary">
-                  <app-icon name="check" [size]="18"></app-icon> Valider le score
+                  <app-icon name="fact_check" [size]="18"></app-icon> Valider le score
+                </button>
+                <!-- Historiques du client (modales à la demande) -->
+                <button *ngIf="!isCharge" (click)="openScoreHistory()" class="btn btn-secondary">
+                  <app-icon name="monitoring" [size]="18"></app-icon> Historique des scores
+                </button>
+                <button *ngIf="user?.role === 'SUPERVISEUR'" (click)="openSimHistory()" class="btn btn-secondary">
+                  <app-icon name="history" [size]="18"></app-icon> Historique des simulations
                 </button>
                 <!-- Nouvelle simulation pré-remplie avec ce client (4.2) -->
                 <button
@@ -61,6 +74,9 @@ import { User } from '../../core/models/user.model';
           </div>
 
           <div class="detail-grid">
+
+            <!-- Ligne 1 : informations personnelles + données financières -->
+            <div class="top-row">
 
             <!-- ── Informations personnelles ── -->
             <div class="card">
@@ -91,31 +107,48 @@ import { User } from '../../core/models/user.model';
               </div>
             </div>
 
-            <!-- ── Données de crédit ── -->
-            <div class="card">
+            </div><!-- /.top-row -->
+
+            <!-- ── Données de crédit (pleine largeur, 2 colonnes internes) ── -->
+            <div class="card credit-card">
               <h3>Données de crédit <span class="card-badge">Bureau / Déclaration</span></h3>
+              <div class="credit-cols">
 
-              <div class="sub-label">Retards de paiement</div>
-              <div class="row"><span class="label">Retards 30–59 jours</span><span class="value">{{ client.nbRetards3059Jours ?? 0 }} fois</span></div>
-              <div class="row"><span class="label">Retards 60–89 jours</span><span class="value">{{ client.nbRetards6089Jours ?? 0 }} fois</span></div>
-              <div class="row">
-                <span class="label">Retards ≥ 90 jours</span>
-                <span class="value" [class.value-danger]="(client.nbRetards90JoursPlus ?? 0) > 0">
-                  {{ client.nbRetards90JoursPlus ?? 0 }} fois
-                </span>
-              </div>
+                <!-- Colonne gauche : retards de paiement -->
+                <div class="credit-col">
+                  <div class="sub-label">Retards de paiement</div>
+                  <div class="row"><span class="label">Retards 30–59 jours</span><span class="value">{{ client.nbRetards3059Jours ?? 0 }} fois</span></div>
+                  <div class="row"><span class="label">Retards 60–89 jours</span><span class="value">{{ client.nbRetards6089Jours ?? 0 }} fois</span></div>
+                  <div class="row">
+                    <span class="label">Retards ≥ 90 jours</span>
+                    <span class="value" [class.value-danger]="(client.nbRetards90JoursPlus ?? 0) > 0">
+                      {{ client.nbRetards90JoursPlus ?? 0 }} fois
+                    </span>
+                  </div>
+                </div>
 
-              <div class="sub-label">Engagements</div>
-              <div class="row"><span class="label">Crédits ouverts</span><span class="value">{{ client.nbCreditsOuverts ?? 0 }}</span></div>
-              <div class="row"><span class="label">Prêts immobiliers</span><span class="value">{{ client.nbPretsImmobiliers ?? 0 }}</span></div>
-              <div class="row">
-                <span class="label">Utilisation crédit renouvelable</span>
-                <span class="value" [class.value-warning]="(client.utilisationCreditRenouvelable ?? 0) > 50"
-                                    [class.value-danger]="(client.utilisationCreditRenouvelable ?? 0) > 80">
-                  {{ (client.utilisationCreditRenouvelable ?? 0) | number:'1.0-1' }}%
-                </span>
+                <!-- Colonne droite : engagements -->
+                <div class="credit-col">
+                  <div class="sub-label">Engagements</div>
+                  <div class="row"><span class="label">Crédits ouverts</span><span class="value">{{ client.nbCreditsOuverts ?? 0 }}</span></div>
+                  <div class="row"><span class="label">Prêts immobiliers</span><span class="value">{{ client.nbPretsImmobiliers ?? 0 }}</span></div>
+                  <!-- Crédit renouvelable : montants source (toujours affichés, — si absent) + % calculé -->
+                  <div class="row"><span class="label">Plafond crédit renouv.</span><span class="value">{{ client.plafondCredit != null ? (client.plafondCredit | number:'1.0-0') + ' DH' : '—' }}</span></div>
+                  <div class="row"><span class="label">Solde utilisé</span><span class="value">{{ client.soldeCredit != null ? (client.soldeCredit | number:'1.0-0') + ' DH' : '—' }}</span></div>
+                  <div class="row">
+                    <span class="label">Utilisation crédit renouvelable</span>
+                    <span class="value" [class.value-warning]="(client.utilisationCreditRenouvelable ?? 0) > 50"
+                                        [class.value-danger]="(client.utilisationCreditRenouvelable ?? 0) > 80">
+                      {{ (client.utilisationCreditRenouvelable ?? 0) | number:'1.0-1' }}%
+                    </span>
+                  </div>
+                </div>
+
               </div>
             </div>
+
+            <!-- Score et son analyse (pleine largeur, en dessous) -->
+            <div class="score-col">
 
             <!-- ── Score simplifié (chargé de clientèle) : uniquement la note finale validée ── -->
             <div class="card score-card simple-score"
@@ -195,8 +228,24 @@ import { User } from '../../core/models/user.model';
               </p>
             </div>
 
+            </div><!-- /.score-col -->
+
           </div>
+
         </div>
+
+        <!-- ── Modales d'historique (ouvertes à la demande) ── -->
+        <app-history-modal [open]="scoreHistoryOpen" title="Historique des scores"
+          [columns]="scoreHistoryCols" [rows]="scoreHistory || []" [pageSize]="8"
+          searchPlaceholder="Rechercher par niveau, statut…"
+          emptyMessage="Aucun score enregistré pour ce client."
+          (rowClick)="openScore($event)" (closed)="scoreHistoryOpen = false"></app-history-modal>
+
+        <app-history-modal [open]="simHistoryOpen" title="Historique des simulations"
+          [columns]="simHistoryCols" [rows]="simHistory || []" [pageSize]="8"
+          searchPlaceholder="Rechercher par niveau…"
+          emptyMessage="Aucune simulation pour ce client."
+          (rowClick)="openSimulation($event)" (closed)="simHistoryOpen = false"></app-history-modal>
 
         <ng-template #loading>
           <div class="loading">Chargement...</div>
@@ -207,14 +256,14 @@ import { User } from '../../core/models/user.model';
   styles: [`
     .layout { display: flex; min-height: 100vh; background: #F5F5F7; }
     .main-content { flex: 1; margin-left: var(--sidebar-width); }
-    .content { padding: 30px; max-width: 1100px; margin: 0 auto; }
+    .content { padding: 30px; max-width: 1200px; margin: 0 auto; }
     .loading { padding: 60px; text-align: center; color: #888; font-family: 'DM Sans', sans-serif; }
 
     .page-header { margin-bottom: 24px; }
     .back-wrap { margin-bottom: 12px; }
 
     .header-row {
-      display: flex; justify-content: space-between; align-items: center;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap;
     }
 
     h2 {
@@ -222,14 +271,14 @@ import { User } from '../../core/models/user.model';
       margin: 0; font-family: 'Sora', sans-serif;
     }
 
-    /* ── Grid ── */
-    .detail-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
-    }
+    /* ── Layout empilé : (personnel | financier) → crédit pleine largeur → score ── */
+    .detail-grid { display: flex; flex-direction: column; gap: 20px; }
+    .top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+    .score-col { display: flex; flex-direction: column; gap: 20px; }
 
-    .score-card { grid-column: 1 / -1; }
+    /* Carte crédit : 2 colonnes internes (retards | engagements) */
+    .credit-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 32px; }
+    .credit-col .sub-label { margin-top: 4px; }
 
     /* ── Cards ── */
     .card {
@@ -331,7 +380,7 @@ import { User } from '../../core/models/user.model';
     }
 
     /* ── Buttons (styles globaux .btn / .btn-primary / .btn-secondary) ── */
-    .header-actions { display: flex; gap: 10px; align-items: center; }
+    .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
     .header-actions .spin { animation: cd-spin 1s linear infinite; }
     @keyframes cd-spin { to { transform: rotate(360deg); } }
 
@@ -358,9 +407,9 @@ import { User } from '../../core/models/user.model';
     .shap-bar.risk { background: #D94040; }
     .shap-bar.protect { background: #2D9C6A; }
 
-    @media (max-width: 768px) {
-      .detail-grid { grid-template-columns: 1fr; }
-      .score-card { grid-column: auto; }
+    @media (max-width: 900px) {
+      .top-row { grid-template-columns: 1fr; }
+      .credit-cols { grid-template-columns: 1fr; gap: 0 32px; }
     }
   `]
 })
@@ -369,6 +418,25 @@ export class ClientDetailComponent implements OnInit {
   user: User | null = null;
   recalculating = false;
   recalcMessage = '';
+
+  // Historiques du client — modales chargées à la demande (#3/#5)
+  scoreHistoryOpen = false;
+  simHistoryOpen = false;
+  scoreHistory: Score[] | null = null;
+  simHistory: Simulation[] | null = null;
+
+  readonly scoreHistoryCols: HistoryColumn[] = [
+    { key: 'createdAt', header: 'Date', cell: 'date', sortable: true },
+    { key: 'valeurScore', header: 'Score', cell: 'score', sortable: true },
+    { key: 'niveauRisque', header: 'Niveau', cell: 'niveau', sortable: true, searchable: true },
+    { key: 'statut', header: 'Statut', cell: 'statut', sortable: true, searchable: true },
+  ];
+  readonly simHistoryCols: HistoryColumn[] = [
+    { key: 'createdAt', header: 'Date', cell: 'date', sortable: true, value: (r) => r.createdAt || r.dateCreation },
+    { key: 'revenusSimules', header: 'Revenus / Charges', cell: 'moneyPair', key2: 'chargesSimulees' },
+    { key: 'scoreSimule', header: 'Score simulé', cell: 'score', sortable: true },
+    { key: 'niveauRisqueSimule', header: 'Niveau', cell: 'niveau', sortable: true, searchable: true },
+  ];
 
   private readonly featureLabels: Record<string, string> = {
     'age': 'Âge',
@@ -392,8 +460,49 @@ export class ClientDetailComponent implements OnInit {
     private authService: AuthService,
     private route: ActivatedRoute,
     private router: Router,
-    private toast: ToastService
+    private toast: ToastService,
+    private confirm: ConfirmService,
+    private scoreService: ScoreService,
+    private simulationService: SimulationService
   ) {}
+
+  get isSuperviseur(): boolean { return this.user?.role === 'SUPERVISEUR'; }
+
+  openScoreHistory(): void {
+    this.scoreHistoryOpen = true;
+    if (this.scoreHistory === null && this.client?.id) {
+      this.scoreService.getScoresParClient(String(this.client.id)).subscribe({
+        next: (list) => { this.scoreHistory = list; },
+        error: () => { this.scoreHistory = []; this.toast.error('Historique des scores indisponible.'); },
+      });
+    }
+  }
+
+  openSimHistory(): void {
+    this.simHistoryOpen = true;
+    if (this.simHistory === null && this.client?.id) {
+      this.simulationService.getSimulationsByClient(String(this.client.id)).subscribe({
+        next: (list) => { this.simHistory = list; },
+        error: () => { this.simHistory = []; this.toast.error('Historique des simulations indisponible.'); },
+      });
+    }
+  }
+
+  /** Ouvre un score de l'historique : file de validation (superviseur) ou liste des scores. */
+  openScore(s: Score): void {
+    this.scoreHistoryOpen = false;
+    if (this.isSuperviseur && s.id) {
+      this.router.navigate(['/scores/validation'], { queryParams: { scoreId: s.id } });
+    } else {
+      this.router.navigate(['/scores'], { queryParams: { open: s.id } });
+    }
+  }
+
+  /** Ouvre une simulation de l'historique dans la page d'historique des simulations. */
+  openSimulation(s: Simulation): void {
+    this.simHistoryOpen = false;
+    this.router.navigate(['/simulations/historique'], { queryParams: { open: s.id } });
+  }
 
   ngOnInit(): void {
     this.user = this.authService.getUser();
@@ -434,12 +543,20 @@ export class ClientDetailComponent implements OnInit {
     return statut === 'VALIDE' || statut === 'REJETE';
   }
 
-  recalculerScore(): void {
+  async recalculerScore(): Promise<void> {
     if (!this.client?.id || this.recalculating || !this.canRecalculer()) return;
-    if (!confirm('Recalculer le score de ce client avec ses données actuelles ?\n' +
-                 'Le nouveau score remplacera le score courant et repassera EN ATTENTE de validation.')) {
-      return;
-    }
+    const ok = await this.confirm.ask({
+      title: 'Recalculer le score ?',
+      message: 'Un nouveau score sera calculé à partir des données actuelles du client.',
+      bullets: [
+        'Le nouveau score remplacera le score courant.',
+        'Il repassera au statut EN ATTENTE.',
+        'Une nouvelle validation par un superviseur sera requise.',
+      ],
+      confirmLabel: 'Recalculer',
+      variant: 'primary',
+    });
+    if (!ok) return;
     this.recalculating = true;
     this.recalcMessage = '';
     const id = String(this.client.id);

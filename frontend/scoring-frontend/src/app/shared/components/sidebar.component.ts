@@ -2,13 +2,15 @@ import { Component, ElementRef, HostListener, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { IconComponent } from './ui/icon.component';
+import { BrandLogoComponent } from './ui/brand-logo.component';
 import { AuthService } from '../../core/services/auth.service';
+import { BRANDING } from '../../core/branding';
 import { User } from '../../core/models/user.model';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterModule, IconComponent],
+  imports: [CommonModule, RouterModule, IconComponent, BrandLogoComponent],
   template: `
     <aside class="sidebar" [class.collapsed]="collapsed">
       <!-- ── En-tête : menu utilisateur ── -->
@@ -26,13 +28,6 @@ import { User } from '../../core/models/user.model';
           </button>
 
           <div class="user-dropdown" role="menu" *ngIf="menuOpen">
-            <div class="dd-head">
-              <span class="avatar sm">{{ initials }}</span>
-              <div class="dd-id">
-                <span class="dd-name">{{ user?.prenom }} {{ user?.nom }}</span>
-                <span class="dd-role">{{ user ? getRoleLabel(user.role) : '' }}</span>
-              </div>
-            </div>
             <a routerLink="/profile" role="menuitem" class="dd-item" (click)="closeMenu()">
               <app-icon name="account_circle" [size]="18"></app-icon><span>Mon profil</span>
             </a>
@@ -76,7 +71,7 @@ import { User } from '../../core/models/user.model';
         </a>
 
         <a *ngIf="user?.role === 'SUPERVISEUR'" routerLink="/simulations" class="nav-item" [title]="collapsed ? 'Simulations' : ''">
-          <app-icon class="icon" name="tune" [size]="20"></app-icon><span class="label">Simulations</span>
+          <app-icon class="icon" name="science" [size]="20"></app-icon><span class="label">Simulations</span>
         </a>
 
         <a *ngIf="user?.role === 'SUPERVISEUR'" routerLink="/simulations/historique" class="nav-item" [title]="collapsed ? 'Historique des simulations' : ''">
@@ -92,16 +87,9 @@ import { User } from '../../core/models/user.model';
         </a>
       </nav>
 
-      <!-- ── Pied : marque ── -->
+      <!-- ── Pied : marque (centralisée via core/branding.ts) ── -->
       <div class="sidebar-footer">
-        <div class="brand" [title]="collapsed ? 'ORUS Scoring' : ''">
-          <span class="brand-orus">ORUS<span>Scoring</span></span>
-          <span class="brand-by" *ngIf="!collapsed">
-            propulsé par
-            <img *ngIf="!logoFailed" src="assets/salafin-logo.svg" alt="Salafin" class="salafin-logo" (error)="logoFailed = true" />
-            <span *ngIf="logoFailed" class="salafin-word">Salafin</span>
-          </span>
-        </div>
+        <app-brand-logo [size]="collapsed ? 'sm' : 'md'" [title]="brandName"></app-brand-logo>
       </div>
     </aside>
   `,
@@ -162,10 +150,6 @@ import { User } from '../../core/models/user.model';
       animation: dd-in 0.14s ease;
     }
     @keyframes dd-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-    .dd-head { display: flex; align-items: center; gap: 10px; padding: 8px 10px 10px; border-bottom: 1px solid #33334f; margin-bottom: 6px; }
-    .dd-id { display: flex; flex-direction: column; min-width: 0; }
-    .dd-name { font-size: 13px; font-weight: 700; color: #fff; font-family: 'Sora', sans-serif; }
-    .dd-role { font-size: 11px; color: #8A8AA3; }
     .dd-item {
       display: flex; align-items: center; gap: 10px; width: 100%;
       padding: 9px 10px; border-radius: 8px; border: none; background: transparent;
@@ -196,13 +180,7 @@ import { User } from '../../core/models/user.model';
     .label { overflow: hidden; }
 
     /* ── Footer / brand ── */
-    .sidebar-footer { padding: 16px; border-top: 1px solid #2C2C44; }
-    .brand { display: flex; flex-direction: column; gap: 4px; }
-    .brand-orus { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 15px; color: #fff; letter-spacing: -0.3px; }
-    .brand-orus span { color: var(--sal-orange); margin-left: 2px; }
-    .brand-by { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: #6E6E88; font-family: 'DM Sans', sans-serif; }
-    .salafin-logo { height: 14px; width: auto; opacity: 0.9; }
-    .salafin-word { font-weight: 700; color: #8A8AA3; letter-spacing: 0.3px; }
+    .sidebar-footer { padding: 10px; border-top: 1px solid #2C2C44; }
 
     /* ── Collapsed rail ── */
     .sidebar.collapsed .sidebar-header { flex-direction: column; gap: 10px; padding: 16px 8px; }
@@ -212,9 +190,7 @@ import { User } from '../../core/models/user.model';
     .sidebar.collapsed .user-dropdown { left: 8px; right: auto; width: 210px; }
     .sidebar.collapsed .nav-item { justify-content: center; gap: 0; padding: 12px 0; }
     .sidebar.collapsed .label { display: none; }
-    .sidebar.collapsed .sidebar-footer { padding: 12px 8px; text-align: center; }
-    .sidebar.collapsed .brand-orus { font-size: 11px; }
-    .sidebar.collapsed .brand-orus span { display: block; margin: 0; }
+    .sidebar.collapsed .sidebar-footer { padding: 10px 8px; text-align: center; }
 
     @media print { .sidebar { display: none !important; } }
   `]
@@ -223,11 +199,11 @@ export class SidebarComponent implements OnInit {
   user: User | null = null;
   collapsed = false;
   menuOpen = false;
-  logoFailed = false;
+  readonly brandName = BRANDING.fullName;
 
   private static readonly STORAGE_KEY = 'sidebar-collapsed';
   private static readonly W_EXPANDED = '280px';
-  private static readonly W_COLLAPSED = '76px';
+  private static readonly W_COLLAPSED = '80px';
 
   constructor(private authService: AuthService, private host: ElementRef<HTMLElement>) {}
 
