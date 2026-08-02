@@ -52,7 +52,7 @@ Contexte : le PR-AUC aléatoire vaut 0.067 (taux de base) ; 0.39 = ×5.8. Un sco
 | Random Forest | 0.189 | 0.437 | 0.376 | 0.521 | 0.396 | 0.185 |
 | XGBoost | 0.223 | 0.436 | 0.386 | 0.501 | 0.394 | 0.223 |
 
-Les seuils F1-optimaux (~0.19–0.22) et MCC-optimaux coïncident presque — le choix du critère n'est pas déterminant. Avec 6.7 % de défauts, une PD de ~0.2 vaut déjà 3× le taux de base : un seuil de 0.5 serait indéfendable. Sans matrice de coûts Orus formelle, F1 est le critère par défaut documenté ; à remplacer par un seuil coût-optimal si Salafin fournit les coûts FP/FN.
+Les seuils F1-optimaux (~0.19–0.22) et MCC-optimaux coïncident presque — le choix du critère n'est pas déterminant. Avec 6.7 % de défauts, une PD de ~0.2 vaut déjà 3× le taux de base : un seuil de 0.5 serait indéfendable. Sans matrice de coûts métier formelle, F1 est le critère par défaut documenté ; à remplacer par un seuil coût-optimal si l'entreprise fournit les coûts FP/FN.
 
 ## 6. Classement quantitatif et test statistique
 

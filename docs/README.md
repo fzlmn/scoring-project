@@ -1,7 +1,7 @@
-# OScore — Documentation Assets
+# OScore — Ressources de documentation
 
-This directory holds the visual and diagrammatic material referenced by the
-project documentation (root `README.md`) and by the internship report.
+Ce répertoire regroupe les éléments visuels et schématiques référencés par la
+documentation du projet (le `README.md` racine) et par le rapport de stage.
 
 ## Structure
 
@@ -14,48 +14,55 @@ docs/
 
 ### `screenshots/`
 
-PNG captures of the running application, one per screen/role. They are linked
-from the root `README.md` (see its **Screenshots** section). Suggested naming:
+Captures de l'application en fonctionnement, regroupées par domaine. Plusieurs écrans sont
+capturés en plusieurs parties (par ex. `…1` / `…2`) ou selon le rôle (superviseur /
+analyste / chargé / admin).
 
-| File | Screen |
-|------|--------|
-| `login.png` | Login page |
-| `dashboard-supervisor.png` | Supervisor dashboard (KPIs, charts) |
-| `dashboard-charge.png` | Chargé de clientèle dashboard |
-| `dashboard-analyste.png` | Analyste (read-only) dashboard |
-| `dashboard-admin.png` | Administrator dashboard |
-| `clients-list.png` | Clients list (search / filter / sort) |
-| `client-detail.png` | Client detail with latest Score |
-| `score-detail-shap.png` | Score detail with SHAP explanation |
-| `scores-validation.png` | Score validation queue (Supervisor) |
-| `simulation.png` | What-if Simulation form + result |
-| `alerts.png` | Alerts list |
-| `admin-users.png` | User management (Admin) |
-| `audit-logs.png` | Audit log (Admin) |
+| Domaine | Fichiers |
+|------|-------|
+| **Authentification** | `login-page.jpg` |
+| **Tableaux de bord** | `superviseur-dashboard1‑3.png`, `charge-dashboard1‑2.png`, `dashboard-analyste1‑2.png`, `admin-dashboard1‑2.png` |
+| **Clients — liste** | `superviseur-clients.png`, `analyste-clients.png`, `charge-clients.png` |
+| **Clients — création / modification** | `nouveau-client1‑3.png`, `modifier-client1‑3.png` |
+| **Clients — détail** | `superviseur-client-details1‑2.png`, `details-client1‑2.png` |
+| **Scores — liste** | `superviseur-scores.png`, `analyste-scores.png` |
+| **Scores — détail + SHAP** | `superviseur-score-details1.png`, `superviseur-scores-details2.png`, `analyste-score-detail1‑2.png` |
+| **Validation des scores** | `valider-scores1.png` (file d'attente), `valider-scores2.png` (SHAP + décision) |
+| **Simulations** | `simulation1‑2.png`, `simulation.jpg`, `details-simulation1‑2.png` |
+| **Historiques** | `historique-simulations.png`, `client-scores-historique.png`, `client-simulations-historique.png` |
+| **Alertes** | `alertes.png` |
+| **Administration** | `utilisateurs.png`, `ajouter-utilisateur.png`, `modifier-utilisateur.png`, `audit-logs.png`, `profil.png` |
+| **Exploitation & exports** | `docker-desktop.jpg` (conteneurs), `export-clients-excel.jpg`, `generer-rapport.jpg` |
 
 ### `diagrams/`
 
-Diagrams used in the internship report. Suggested set:
+Diagrammes utilisés dans le rapport de stage et dans les README (tous exportés en PNG).
 
-| File | Diagram |
-|------|---------|
-| `architecture.png` | System / deployment architecture |
-| `use-case.png` | Use-case diagram (per role) |
-| `class-diagram.png` | Backend domain model (entities) |
-| `erd.png` | Database entity-relationship diagram |
-| `sequence-scoring.png` | Sequence: client creation → scoring → validation |
-| `sequence-auth.png` | Sequence: login → JWT → authorized request |
-| `activity-validation.png` | Activity: Score validation workflow |
-| `ml-pipeline.png` | Machine Learning training/inference pipeline |
+| Fichier | Diagramme | Notation |
+|------|---------|----------|
+| `architecture-diagram.png` | Architecture du système (couches logiques) | Architecture |
+| `repository-tree.png` | Organisation du dépôt / du projet | Arborescence de fichiers |
+| `use-case-diagram.png` | Diagramme de cas d'utilisation (par rôle) | Cas d'utilisation UML |
+| `class-diagram.png` | Modèle de domaine du backend (entités + énumérations) | Classes UML |
+| `er-diagram.png` | Schéma de la base (PostgreSQL / Flyway) | Entité–Association |
+| `credit-scoring-workflow.png` | Processus métier (client → scoring → validation) | Logigramme |
+| `ml-inference-pipeline.png` | Pipeline d'inférence du Machine Learning | Logigramme |
+| `jwt-auth-sequence.png` | Connexion → JWT → requête autorisée | Séquence UML |
+| `client-scoring-sequence.png` | Création d'un client → scoring automatique | Séquence UML |
+| `score-validation-sequence.png` | Validation / rejet d'un score | Séquence UML |
+| `simulation-sequence.png` | Simulation « what-if » | Séquence UML |
+| `score-recalculation-sequence.png` | Recalcul manuel d'un score | Séquence UML |
+| `alert-management-sequence.png` | Consultation et traitement des alertes | Séquence UML |
+| `validation-activity-diagram.png` | Processus de validation d'un score | Activité UML |
 
-> Keep source files (`.drawio`, `.puml`, `.mmd`) next to their exported `.png`
-> so diagrams remain editable.
+> Les sources éditables sont conservées à côté du rapport (Mermaid / PlantUML pour les
+> diagrammes UML, Graphviz pour l'architecture, matplotlib pour l'arborescence du dépôt).
 
-## Related documentation
+## Documentation associée
 
-- Root overview: [`../README.md`](../README.md)
-- Frontend: [`../frontend/scoring-frontend/README.md`](../frontend/scoring-frontend/README.md)
-- Backend: [`../backend/scoring-backend/README.md`](../backend/scoring-backend/README.md)
-- Machine Learning service: [`../ml-service/README.md`](../ml-service/README.md)
-- Machine Learning phase reports: [`../ml-service/docs/`](../ml-service/docs/)
-- Docker / operations: [`../DOCKER.md`](../DOCKER.md)
+- Présentation générale : [`../README.md`](../README.md)
+- Frontend : [`../frontend/scoring-frontend/README.md`](../frontend/scoring-frontend/README.md)
+- Backend : [`../backend/scoring-backend/README.md`](../backend/scoring-backend/README.md)
+- Service de Machine Learning : [`../ml-service/README.md`](../ml-service/README.md)
+- Rapports de phases du Machine Learning : [`../ml-service/docs/`](../ml-service/docs/)
+- Docker / exploitation : [`../DOCKER.md`](../DOCKER.md)

@@ -28,7 +28,7 @@ Le seuil de surveillance **n'affecte ni le modèle entraîné, ni la calibration
 
 ## 3. Explication du seuil de décision 0.22265625 (exigence 5)
 
-- **Critère d'optimisation** : maximum du F1 sur la classe défaut (compromis précision/rappel documenté ; à remplacer par un seuil coût-optimal si Salafin fournit une matrice de coûts FP/FN).
+- **Critère d'optimisation** : maximum du F1 sur la classe défaut (compromis précision/rappel documenté ; à remplacer par un seuil coût-optimal si l'entreprise fournit une matrice de coûts FP/FN).
 - **Protocole de validation** : prédictions **out-of-fold** d'une CV stratifiée 5-fold (seed 42) sur le train uniquement — chaque dossier est prédit par un modèle qui ne l'a jamais vu — puis calibrées par CV (sémantique `CalibratedClassifierCV(ensemble=False)`). Le test n'a joué **aucun** rôle dans le choix ; la phase 4 a ensuite mesuré sa généralisation : F1 test 0.4512, à **0.0008** de l'optimum a posteriori du test (0.2432).
 - **Sélection automatique** : `precision_recall_curve` énumère comme candidats **toutes les valeurs prédites distinctes** (465 seuils) et l'argmax F1 est pris par programme (notebook 03 §9, fonction `best_threshold_f1`). Aucun choix manuel — la valeur non ronde en est la signature : 0.22265625 est une **marche de sortie du calibreur isotonique** (fonction en escalier), encadrée par les marches 0.222423 et 0.222956 ; tout seuil entre deux marches adjacentes produit exactement les mêmes décisions.
 - **Pourquoi pas 0.20, 0.21, 0.23, 0.25** (OOF calibré) :
@@ -49,7 +49,7 @@ En dessous (0.20-0.21) : plus de fausses alertes pour un F1 inférieur ; au-dess
 ## 4. Validation d'intégration (notebook 07, tout ✓)
 
 1. **Complétude** : 54 fichiers vérifiés programmatiquement (7 notebooks, 16 figures, 18 artefacts modèles, 7 rapports de phase, 6 fichiers de production) — 0 manquant.
-2. **Contrat Spring Boot ↔ ml-service** : payload construit **exactement** comme `IaService.buildPayload` (client Orus : 15 000 MAD de revenus → 1 500 USD, DebtRatio 0.35, utilisation 40 % → 0.40) ; réponse consommée **exactement** comme `IaService` (`score` castable en double, `resoudreNiveau` — valeur toujours dans {FAIBLE, MOYEN, ELEVE}, `mapExplications` — les 4 sous-champs requis présents et typés). Résultat persisté simulé : `valeurScore 8.8, niveauRisque FAIBLE, 3 explications`.
+2. **Contrat Spring Boot ↔ ml-service** : payload construit **exactement** comme `IaService.buildPayload` (client type : 15 000 MAD de revenus → 1 500 USD, DebtRatio 0.35, utilisation 40 % → 0.40) ; réponse consommée **exactement** comme `IaService` (`score` castable en double, `resoudreNiveau` — valeur toujours dans {FAIBLE, MOYEN, ELEVE}, `mapExplications` — les 4 sous-champs requis présents et typés). Résultat persisté simulé : `valeurScore 8.8, niveauRisque FAIBLE, 3 explications`.
 3. **Règle métier aval intacte** : dossier ML=FAIBLE (PD 2.0 %) + taux d'endettement 55 % → plancher MOYEN par `appliquerRegleEndettement` — l'escalade backend fonctionne inchangée.
 4. **Tests de bout en bout** (`tests/test_api_e2e.py`, session vierge) : 4 profils (faible/proche du seuil/élevé/valeurs manquantes), API ≡ chemin direct des notebooks au 6ᵉ décimal, préprocesseur embarqué prouvé actif, mapping 3 niveaux vérifié aux bornes exactes.
 5. **Session vierge** : sous-processus indépendant → démarrage de l'app, `/health`, `/predict`, deux seuils rechargés à l'identique.

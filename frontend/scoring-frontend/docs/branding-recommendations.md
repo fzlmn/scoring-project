@@ -1,7 +1,7 @@
 # Branding — recommandations (marque provisoire → marque définitive)
 
-La marque actuelle (« ORUS Scoring » + « propulsé par Salafin ») est **provisoire**.
-Elle est désormais **centralisée** : tout le texte et les assets de marque proviennent de
+La marque définitive de l'application est **OScore** ; une marque provisoire antérieure a
+été retirée. La marque est **centralisée** : tout le texte et les assets de marque proviennent de
 `src/app/core/branding.ts` et du composant `<app-brand-logo>`. Pour rebrander, éditer ce
 fichier et déposer le logo final — aucune marque n'est codée en dur ailleurs.
 
@@ -18,7 +18,7 @@ généré ici** ; ces éléments servent de brief au créateur.
 | Rendu du logo (sidebar, login) | `shared/components/ui/brand-logo.component.ts` |
 | Titre de l'onglet navigateur | `src/index.html` (`<title>`) |
 | Favicon | `src/favicon.ico` (à remplacer) |
-| Logo partenaire | `src/assets/salafin-logo.svg` (à remplacer / retirer via `showPoweredBy`) |
+| Mention partenaire | *(retirée — aucune marque partenaire n'est affichée)* |
 
 Déposer le logo définitif dans `src/assets/` et renseigner `BRANDING.logoPath` : le composant
 `brand-logo` bascule automatiquement du rendu typographique vers l'image.
@@ -39,7 +39,7 @@ L'application utilise déjà un système de tokens cohérent — le logo doit s'
 
 | Rôle | Couleur | Hex | Usage |
 |---|---|---|---|
-| Accent primaire | Orange Salafin | `#E8621A` | Marque, actions primaires, jauge moyenne |
+| Accent primaire | Orange (accent marque) | `#E8621A` | Marque, actions primaires, jauge moyenne |
 | Encre / fond sombre | Bleu nuit | `#1A1A2E` | Sidebar, texte de titre, fond du logo |
 | Succès / risque faible | Vert | `#2D9C6A` | États positifs |
 | Danger / risque élevé | Rouge | `#D94040` | Alertes, risque élevé |
@@ -70,7 +70,8 @@ L'app utilise déjà deux familles (Google Fonts) — les réutiliser assure la 
 **Livrables à demander au créateur** : logo horizontal (logotype + symbole), symbole seul,
 favicon 32×32 et 16×16, versions monochromes (blanc / noir), formats SVG (web) + PNG (fallback).
 
-## 6. Retrait des mentions partenaire
+## 6. Mentions partenaire
 
-La mention « propulsé par Salafin » est pilotée par `BRANDING.showPoweredBy`. La passer à `false`
-la retire de la sidebar et du login sans autre modification de code.
+Aucune mention partenaire n'est affichée : la marque présentée est uniquement **OScore**
+(centralisée dans `core/branding.ts`). L'application est un projet académique indépendant et
+ne se présente pas comme un produit officiel d'un partenaire.

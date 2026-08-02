@@ -1,26 +1,27 @@
 # OScore — Backend (Spring Boot)
 
-REST API for the **OScore** credit-risk platform. Owns authentication, authorization,
-the domain model (Clients, Scores, Simulations, Validation, Alerts, Users, Audit),
-persistence, and orchestration of the Machine Learning service.
+API REST de la plateforme de risque de crédit **OScore**. Elle prend en charge
+l'authentification, l'autorisation, le modèle de domaine (Clients, Scores, Simulations,
+Validation, Alertes, Utilisateurs, Audit), la persistance et l'orchestration du service de
+Machine Learning.
 
-> Part of the OScore monorepo — see the [root README](../../README.md) for the overall
-> architecture.
+> Fait partie du mono-dépôt OScore — voir le [README racine](../../README.md) pour
+> l'architecture d'ensemble.
 
-## Overview
+## Présentation
 
-| Item | Value |
+| Élément | Valeur |
 |------|-------|
 | Framework | **Spring Boot 4.0.5** |
-| Language | **Java 21** |
+| Langage | **Java 21** |
 | Modules | Web MVC, Security, Data JPA, Validation, Flyway |
-| Auth | JWT (JJWT 0.12, HS512), stateless |
-| Database | PostgreSQL 15 (Flyway-migrated) |
-| Excel export | Apache POI 5.2 |
-| Build | Maven (wrapper included) |
-| Base path | `/api` · default port `8080` |
+| Authentification | JWT (JJWT 0.12, HS512), sans état |
+| Base de données | PostgreSQL 15 (migrée par Flyway) |
+| Export Excel | Apache POI 5.2 |
+| Build | Maven (wrapper inclus) |
+| Chemin de base | `/api` · port par défaut `8080` |
 
-Architecture is a classic layered design:
+L'architecture suit un découpage en couches classique :
 
 ```
 controllers/   REST endpoints (@RestController, @PreAuthorize)
@@ -33,86 +34,105 @@ security/      JwtService, JwtAuthFilter
 config/        SecurityConfig, AppConfig (CORS + RestTemplate), DataInitializer
 ```
 
-## Security
+Le modèle de domaine (entités JPA et leurs énumérations) est résumé ci-dessous.
 
-- **Stateless** sessions (`SessionCreationPolicy.STATELESS`), CSRF disabled (token-based
-  API), CORS restricted to the Angular origin (`http://localhost:4200`).
-- **Public endpoint:** only `POST /api/auth/login`. Everything else requires
-  authentication (`anyRequest().authenticated()`).
-- **Method-level RBAC:** `@EnableMethodSecurity` + `@PreAuthorize("hasRole(...)")` /
-  `hasAnyRole(...)` on each controller method. Authorization is enforced **on the
-  server** — the Angular guards are only a UX convenience.
-- Passwords are hashed with **BCrypt**.
-- JSON error contract: `401` (`Authentification requise`) for unauthenticated,
-  `403` (`Accès refusé — droits insuffisants`) for authorization failures.
+![Diagramme de classes du domaine](../../docs/diagrams/class-diagram.png)
 
-### Roles
+*Figure — Modèle de domaine du backend : entités (User, Client, Score, Explication, Alerte, Simulation, AuditLog) et leurs énumérations.*
 
-`ADMINISTRATEUR`, `SUPERVISEUR`, `CHARGE_CLIENTELE`, `ANALYSTE` — see the
-[root README](../../README.md#authentication--roles) for the full permission matrix.
-The **ANALYSTE** role is strictly read-only (every mutating endpoint returns `403`).
+## Sécurité
 
-## JWT Authentication
+- Sessions **sans état** (`SessionCreationPolicy.STATELESS`), CSRF désactivé (API basée sur
+  jetons), CORS restreint à l'origine Angular (`http://localhost:4200`).
+- **Point d'entrée public :** uniquement `POST /api/auth/login`. Tout le reste exige une
+  authentification (`anyRequest().authenticated()`).
+- **RBAC au niveau des méthodes :** `@EnableMethodSecurity` + `@PreAuthorize("hasRole(...)")`
+  / `hasAnyRole(...)` sur chaque méthode de contrôleur. L'autorisation est appliquée **côté
+  serveur** — les guards Angular ne sont qu'un confort d'utilisation.
+- Les mots de passe sont hachés avec **BCrypt**.
+- Contrat d'erreur JSON : `401` (`Authentification requise`) si non authentifié,
+  `403` (`Accès refusé — droits insuffisants`) en cas d'échec d'autorisation.
 
-1. `POST /api/auth/login` verifies credentials and returns a signed JWT
+### Rôles
+
+`ADMINISTRATEUR`, `SUPERVISEUR`, `CHARGE_CLIENTELE`, `ANALYSTE` — voir le
+[README racine](../../README.md#authentification-et-rôles) pour la matrice complète des
+permissions. Le rôle **ANALYSTE** est strictement en lecture seule (tout endpoint mutant
+renvoie `403`).
+
+## Authentification JWT
+
+1. `POST /api/auth/login` vérifie les identifiants et renvoie un JWT signé
    (`AuthService` → `JwtService.generateToken`).
-2. `JwtAuthFilter` runs before the username/password filter, extracts the Bearer token,
-   validates signature + expiry, and populates the `SecurityContext` with the `User`
-   principal.
-3. Token settings live in `application.yaml`:
-   - `jwt.secret` — HS512 signing key (override via `JWT_SECRET` in production).
+2. `JwtAuthFilter` s'exécute avant le filtre username/password, extrait le jeton Bearer,
+   valide la signature + l'expiration, et peuple le `SecurityContext` avec le principal
+   `User`.
+3. Les paramètres du jeton se trouvent dans `application.yaml` :
+   - `jwt.secret` — clé de signature HS512 (à surcharger via `JWT_SECRET` en production).
    - `jwt.expiration` — `86400000` ms (**24 h**).
 
-`GET /api/auth/me` returns the current authenticated user (requires a valid token).
+`GET /api/auth/me` renvoie l'utilisateur actuellement authentifié (nécessite un jeton
+valide).
 
-## Flyway Migrations
+![Diagramme de séquence de l'authentification JWT](../../docs/diagrams/jwt-auth-sequence.png)
 
-Schema is versioned and applied automatically on startup
-(`spring.jpa.hibernate.ddl-auto: validate` — Hibernate never mutates the schema;
-Flyway owns it). Migrations live in `src/main/resources/db/migration/`:
+*Figure — Flux d'authentification : la connexion émet un JWT signé ; chaque requête suivante est validée par `JwtAuthFilter` et autorisée selon le rôle.*
 
-| Migration | Purpose |
+## Migrations Flyway
+
+Le schéma est versionné et appliqué automatiquement au démarrage
+(`spring.jpa.hibernate.ddl-auto: validate` — Hibernate ne modifie jamais le schéma ;
+c'est Flyway qui en est propriétaire). Les migrations se trouvent dans
+`src/main/resources/db/migration/` :
+
+| Migration | Rôle |
 |-----------|---------|
-| `V1__init.sql` | Initial schema: `users`, `clients`, `scores`, `explications`, `alertes`, `simulations`, `audit_logs` |
-| `V2__add_client_scoring_features.sql` | Additional client scoring features |
-| `V3__add_score_decided_at.sql` | `decided_at` column on scores |
-| `V4__backfill_score_decided_at.sql` | Backfill of `decided_at` |
-| `V5__simulation_parametres.sql` | Simulation parameters persistence |
-| `V6__add_credit_plafond_solde.sql` | Credit ceiling / balance fields |
+| `V1__init.sql` | Schéma initial : `users`, `clients`, `scores`, `explications`, `alertes`, `simulations`, `audit_logs` |
+| `V2__add_client_scoring_features.sql` | Variables de scoring supplémentaires du client |
+| `V3__add_score_decided_at.sql` | Colonne `decided_at` sur les scores |
+| `V4__backfill_score_decided_at.sql` | Remplissage rétroactif de `decided_at` |
+| `V5__simulation_parametres.sql` | Persistance des paramètres de simulation |
+| `V6__add_credit_plafond_solde.sql` | Champs plafond / solde du crédit |
 
-> ⚠️ In `application.yaml`, Flyway is configured for development with
-> `clean-on-validation-error: true` and `clean-disabled: false` — a checksum mismatch
-> will **drop and rebuild** the database. Disable this for any non-dev profile.
+> ⚠️ Dans `application.yaml`, Flyway est configuré pour le développement avec
+> `clean-on-validation-error: true` et `clean-disabled: false` — une incohérence de
+> checksum **supprimera et reconstruira** la base. À désactiver pour tout profil autre que
+> développement.
 
 ## PostgreSQL
 
-- Connection is configured through `DB_HOST` / `DB_USER` / `DB_PASS` (defaults:
-  `localhost` / `scoring_user` / `scoring_pass`, database `scoring_db`).
-- In Docker, `DB_HOST=postgres` (Compose service name).
-- The domain model is fully relational with foreign keys (e.g. `scores.client_id →
-  clients.id`, `explications.score_id → scores.id`, `audit_logs.user_id → users.id`).
+- La connexion est configurée via `DB_HOST` / `DB_USER` / `DB_PASS` (valeurs par défaut :
+  `localhost` / `scoring_user` / `scoring_pass`, base `scoring_db`).
+- Sous Docker, `DB_HOST=postgres` (nom de service Compose).
+- Le modèle de domaine est entièrement relationnel avec des clés étrangères (par ex.
+  `scores.client_id → clients.id`, `explications.score_id → scores.id`,
+  `audit_logs.user_id → users.id`).
 
-## REST API
+![Diagramme entité-association de la base de données](../../docs/diagrams/er-diagram.png)
 
-All routes are prefixed with `/api`. Authorization shown per route.
+*Figure — Schéma relationnel construit par les migrations Flyway (V1 → V6) : tables, colonnes, clés primaires et étrangères.*
+
+## API REST
+
+Toutes les routes sont préfixées par `/api`. L'autorisation est indiquée par route.
 
 ### Auth
-| Method | Path | Roles |
+| Méthode | Chemin | Rôles |
 |--------|------|-------|
 | POST | `/auth/login` | public |
-| GET | `/auth/me` | authenticated |
+| GET | `/auth/me` | authentifié |
 
-### Dashboard
-| Method | Path | Roles |
+### Tableau de bord
+| Méthode | Chemin | Rôles |
 |--------|------|-------|
-| GET | `/dashboard` | any authenticated |
+| GET | `/dashboard` | tout utilisateur authentifié |
 | GET | `/dashboard/evolution/validations` | ANALYSTE, SUPERVISEUR |
 | GET | `/dashboard/evolution/scores` | ANALYSTE, SUPERVISEUR |
 | GET | `/dashboard/evolution/alertes` | SUPERVISEUR |
 | GET | `/dashboard/evolution/clients` | CHARGE_CLIENTELE |
 
 ### Clients
-| Method | Path | Roles |
+| Méthode | Chemin | Rôles |
 |--------|------|-------|
 | GET | `/clients` | CHARGE, ANALYSTE, SUPERVISEUR |
 | GET | `/clients/{id}` | CHARGE, ANALYSTE, SUPERVISEUR |
@@ -123,7 +143,7 @@ All routes are prefixed with `/api`. Authorization shown per route.
 | GET | `/clients/export` | CHARGE, ANALYSTE, SUPERVISEUR |
 
 ### Scores
-| Method | Path | Roles |
+| Méthode | Chemin | Rôles |
 |--------|------|-------|
 | GET | `/scores` | ANALYSTE, SUPERVISEUR |
 | GET | `/scores/en-attente` | SUPERVISEUR |
@@ -132,14 +152,14 @@ All routes are prefixed with `/api`. Authorization shown per route.
 | PATCH | `/scores/{id}/valider` | SUPERVISEUR |
 
 ### Simulations
-| Method | Path | Roles |
+| Méthode | Chemin | Rôles |
 |--------|------|-------|
 | POST | `/simulations` | SUPERVISEUR |
 | GET | `/simulations` | SUPERVISEUR |
 | GET | `/simulations/client/{clientId}` | SUPERVISEUR |
 
-### Alerts
-| Method | Path | Roles |
+### Alertes
+| Méthode | Chemin | Rôles |
 |--------|------|-------|
 | GET | `/alertes` | SUPERVISEUR, ADMINISTRATEUR |
 | GET | `/alertes/non-lues` | SUPERVISEUR, ADMINISTRATEUR |
@@ -148,8 +168,8 @@ All routes are prefixed with `/api`. Authorization shown per route.
 | PATCH | `/alertes/{id}/statut` | SUPERVISEUR |
 | PATCH | `/alertes/marquer-vues` | SUPERVISEUR, ADMINISTRATEUR |
 
-### Users (admin)
-| Method | Path | Roles |
+### Utilisateurs (admin)
+| Méthode | Chemin | Rôles |
 |--------|------|-------|
 | GET | `/users` | ADMINISTRATEUR |
 | GET | `/users/{id}` | ADMINISTRATEUR |
@@ -159,17 +179,18 @@ All routes are prefixed with `/api`. Authorization shown per route.
 | PATCH | `/users/{id}/activer` | ADMINISTRATEUR |
 | PATCH | `/users/{id}/reinitialiser-mot-de-passe` | ADMINISTRATEUR |
 
-### Audit logs (admin)
-| Method | Path | Roles |
+### Journal d'audit (admin)
+| Méthode | Chemin | Rôles |
 |--------|------|-------|
 | GET | `/audit-logs` | ADMINISTRATEUR |
 | GET | `/audit-logs/user/{userId}` | ADMINISTRATEUR |
 | GET | `/audit-logs/{entite}/{entiteId}` | ADMINISTRATEUR |
 
-## Running locally
+## Exécution en local
 
-Prerequisites: **Java 21**, a running **PostgreSQL 15** (database `scoring_db`), and the
-**ML service** on `:8000` (or set `IA_SERVICE_ENABLED=false` to skip scoring).
+Prérequis : **Java 21**, une instance **PostgreSQL 15** en cours d'exécution (base
+`scoring_db`), et le **service ML** sur `:8000` (ou définir `IA_SERVICE_ENABLED=false` pour
+désactiver le scoring).
 
 ```bash
 # from backend/scoring-backend/
@@ -178,36 +199,38 @@ export IA_SERVICE_URL=http://localhost:8000
 ./mvnw spring-boot:run          # Flyway migrates, app starts on :8080
 ```
 
-On first startup a bootstrap administrator (`admin@orus.ma`) is created with
-`ADMIN_PASSWORD` (default `Admin1234!`).
+Au premier démarrage, `DataInitializer` crée un **unique administrateur d'amorçage**
+(`admin@orus.ma`) à partir de `ADMIN_PASSWORD` (par défaut `Admin1234!`). Aucun autre
+compte n'est initialisé — les comptes Superviseur, Chargé de clientèle et Analyste sont
+créés manuellement par l'administrateur via **Administration → Utilisateurs**.
 
-## Maven commands
+## Commandes Maven
 
-| Command | Purpose |
+| Commande | Rôle |
 |---------|---------|
-| `./mvnw spring-boot:run` | Run the application |
-| `./mvnw compile` | Compile |
-| `./mvnw test` | Run tests |
-| `./mvnw clean package` | Build the executable JAR (`target/*.jar`) |
-| `./mvnw clean package -DskipTests` | Build without tests |
-| `java -jar target/scoring-backend-0.0.1-SNAPSHOT.jar` | Run the built JAR |
+| `./mvnw spring-boot:run` | Lancer l'application |
+| `./mvnw compile` | Compiler |
+| `./mvnw test` | Exécuter les tests |
+| `./mvnw clean package` | Construire le JAR exécutable (`target/*.jar`) |
+| `./mvnw clean package -DskipTests` | Construire sans les tests |
+| `java -jar target/scoring-backend-0.0.1-SNAPSHOT.jar` | Lancer le JAR construit |
 
-> On Windows use `mvnw.cmd` instead of `./mvnw`.
+> Sous Windows, utilisez `mvnw.cmd` au lieu de `./mvnw`.
 
 ## Configuration
 
-All settings are in `src/main/resources/application.yaml`, overridable via environment
-variables:
+Tous les paramètres se trouvent dans `src/main/resources/application.yaml`, surchargables
+par variables d'environnement :
 
-| Property | Env | Default |
+| Propriété | Variable d'env. | Défaut |
 |----------|-----|---------|
-| `spring.datasource.url` (host) | `DB_HOST` | `localhost` |
+| `spring.datasource.url` (hôte) | `DB_HOST` | `localhost` |
 | `spring.datasource.username` | `DB_USER` | `scoring_user` |
 | `spring.datasource.password` | `DB_PASS` | `scoring_pass` |
-| `jwt.secret` | `JWT_SECRET` | dev default |
+| `jwt.secret` | `JWT_SECRET` | valeur de dev par défaut |
 | `jwt.expiration` | — | `86400000` (24 h) |
 | `ia.service.url` | `IA_SERVICE_URL` | `http://localhost:8000` |
 | `ia.service.enabled` | `IA_SERVICE_ENABLED` | `true` |
-| `ia.mad-to-usd-rate` | — | `10.0` (income scaling for the model) |
+| `ia.mad-to-usd-rate` | — | `10.0` (mise à l'échelle des revenus pour le modèle) |
 | `admin.password` | `ADMIN_PASSWORD` | `Admin1234!` |
 | `server.port` | — | `8080` |

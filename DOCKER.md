@@ -1,10 +1,10 @@
-# Running OScore with Docker
+# Exécuter OScore avec Docker
 
-A single `docker compose up` brings up the entire **OScore** platform — PostgreSQL,
-pgAdmin, the Machine Learning service, the Spring Boot backend, and the Angular
-frontend — wired together on Compose's default network.
+Une seule commande `docker compose up` démarre l'ensemble de la plateforme **OScore** —
+PostgreSQL, pgAdmin, le service de Machine Learning, le backend Spring Boot et le
+frontend Angular — reliés entre eux sur le réseau par défaut de Compose.
 
-> Requires **Docker Desktop** with Compose v2 (BuildKit enabled by default).
+> Nécessite **Docker Desktop** avec Compose v2 (BuildKit activé par défaut).
 
 ---
 
@@ -18,40 +18,46 @@ frontend — wired together on Compose's default network.
                               postgres  ◄── pgadmin :5050
 ```
 
-- The **frontend** runs in your browser (on the host), so its API calls target
-  `http://localhost:8080` — a browser cannot resolve Docker service names.
-- The **backend** reaches other containers by **service name**: `postgres:5432` and
-  `ml-service:8000`.
-- The **ML service** is called lazily by the backend at scoring time.
-- PostgreSQL data lives in a named volume and survives `docker compose down`.
+- Le **frontend** s'exécute dans votre navigateur (sur l'hôte) ; ses appels d'API visent
+  donc `http://localhost:8080` — un navigateur ne peut pas résoudre les noms de services
+  Docker.
+- Le **backend** atteint les autres conteneurs par leur **nom de service** :
+  `postgres:5432` et `ml-service:8000`.
+- Le **service ML** est appelé à la demande par le backend, au moment du scoring.
+- Les données PostgreSQL résident dans un volume nommé et survivent à
+  `docker compose down`.
 
 ---
 
 ## Services
 
-| Service | Image / build | Host URL | Notes |
+| Service | Image / build | URL sur l'hôte | Notes |
 |---------|---------------|----------|-------|
-| `postgres` | `postgres:15` | `localhost:5432` | DB `scoring_db` (user `scoring_user` / `scoring_pass`); healthcheck via `pg_isready` |
-| `pgadmin` | `dpage/pgadmin4` | http://localhost:5050 | `admin@admin.com` / `admin`; `scoring_db` pre-registered |
-| `ml-service` | `ml-service/Dockerfile.dev` | http://localhost:8000 | FastAPI + XGBoost + SHAP; uvicorn `--reload` |
-| `backend` | `backend/scoring-backend/Dockerfile.dev` | http://localhost:8080 | Spring Boot; Flyway migrates on start; DevTools |
-| `frontend` | `frontend/scoring-frontend/Dockerfile.dev` | http://localhost:4200 | Angular dev server with live reload |
+| `postgres` | `postgres:15` | `localhost:5432` | Base `scoring_db` (utilisateur `scoring_user` / `scoring_pass`) ; healthcheck via `pg_isready` |
+| `pgadmin` | `dpage/pgadmin4` | http://localhost:5050 | `admin@admin.com` / `admin` ; `scoring_db` pré-enregistrée |
+| `ml-service` | `ml-service/Dockerfile.dev` | http://localhost:8000 | FastAPI + XGBoost + SHAP ; uvicorn `--reload` |
+| `backend` | `backend/scoring-backend/Dockerfile.dev` | http://localhost:8080 | Spring Boot ; migrations Flyway au démarrage ; DevTools |
+| `frontend` | `frontend/scoring-frontend/Dockerfile.dev` | http://localhost:4200 | Serveur de développement Angular avec rechargement à chaud |
 
-Startup order is enforced with `depends_on` + healthchecks: `postgres` (healthy) →
-`backend`; `ml-service` (started) → `backend`; `backend` (started) → `frontend`.
+L'ordre de démarrage est imposé par `depends_on` + healthchecks : `postgres` (sain) →
+`backend` ; `ml-service` (démarré) → `backend` ; `backend` (démarré) → `frontend`.
 
----
+![Conteneurs OScore en cours d'exécution dans Docker Desktop](docs/screenshots/docker-desktop.jpg)
 
-## Docker networking
-
-- All services share Compose's default bridge network and resolve each other by
-  **service name** (`postgres`, `ml-service`, `backend`).
-- Only the ports listed above are published to the host.
-- CORS on the backend allows the frontend origin `http://localhost:4200`.
+*Figure — Les cinq conteneurs d'OScore en cours d'exécution sous Docker Compose (frontend, backend, ml-service, postgres, pgadmin).*
 
 ---
 
-## Startup
+## Réseau Docker
+
+- Tous les services partagent le réseau bridge par défaut de Compose et se résolvent
+  mutuellement par **nom de service** (`postgres`, `ml-service`, `backend`).
+- Seuls les ports listés ci-dessus sont publiés sur l'hôte.
+- Le CORS du backend autorise l'origine du frontend `http://localhost:4200`.
+
+---
+
+## Démarrage
 
 ```bash
 docker compose up              # build (first time) + start, logs in foreground
@@ -59,10 +65,11 @@ docker compose up -d           # detached
 docker compose up --build      # force image rebuild, then start
 ```
 
-First run is slow: the ML image installs xgboost/shap/scikit-learn and the backend
-downloads its Maven dependencies into a cache volume. Subsequent runs are fast.
+Le premier lancement est lent : l'image ML installe xgboost/shap/scikit-learn et le
+backend télécharge ses dépendances Maven dans un volume de cache. Les lancements suivants
+sont rapides.
 
-Check status / logs:
+Vérifier l'état / les logs :
 
 ```bash
 docker compose ps
@@ -72,7 +79,7 @@ docker compose logs -f               # follow everything
 
 ---
 
-## Shutdown
+## Arrêt
 
 ```bash
 docker compose stop            # stop containers, keep them
@@ -82,7 +89,7 @@ docker compose down -v         # ALSO delete volumes (⚠️ wipes the database)
 
 ---
 
-## Rebuild
+## Reconstruction (rebuild)
 
 ```bash
 docker compose build backend               # rebuild one image
@@ -91,53 +98,54 @@ docker compose build                       # rebuild all
 docker compose up -d --build               # rebuild all + restart
 ```
 
-### Applying backend code changes (dev)
+### Appliquer des changements de code backend (développement)
 
-The backend runs via `mvn spring-boot:run` with **spring-boot-devtools**. Source is
-bind-mounted, but nothing recompiles `.java` inside the container automatically, so
-trigger a compile once — DevTools then hot-restarts in ~3 s:
+Le backend s'exécute via `mvn spring-boot:run` avec **spring-boot-devtools**. Le code
+source est monté (bind-mount), mais rien ne recompile les `.java` dans le conteneur
+automatiquement ; il faut donc déclencher une compilation une fois — DevTools effectue
+ensuite un redémarrage à chaud en ~3 s :
 
 ```bash
 docker compose exec backend mvn compile
 ```
 
-Changing `pom.xml` (dependencies) needs a full restart:
-`docker compose restart backend`. The **frontend** and **ML service** hot-reload on save
-without extra steps.
+Modifier `pom.xml` (dépendances) impose un redémarrage complet :
+`docker compose restart backend`. Le **frontend** et le **service ML** se rechargent à
+chaud à l'enregistrement, sans étape supplémentaire.
 
 ---
 
 ## Volumes
 
-| Volume | Purpose |
+| Volume | Rôle |
 |--------|---------|
-| `postgres_data` | PostgreSQL data — **preserved** across `down`; only `down -v` deletes it |
-| `pgadmin_data` | pgAdmin settings / registered servers |
-| `maven_repo` | Backend Maven dependency cache (survives rebuilds) |
-| `frontend_node_modules` | Linux-built `node_modules` (kept separate from the host copy) |
-| `frontend_angular_cache` | Angular build cache |
+| `postgres_data` | Données PostgreSQL — **conservées** lors d'un `down` ; seul `down -v` les supprime |
+| `pgadmin_data` | Paramètres pgAdmin / serveurs enregistrés |
+| `maven_repo` | Cache des dépendances Maven du backend (survit aux rebuilds) |
+| `frontend_node_modules` | `node_modules` construits sous Linux (isolés de la copie de l'hôte) |
+| `frontend_angular_cache` | Cache de build Angular |
 
-> Don't rename the project folder — Compose derives volume names from it, so a rename
-> orphans your existing `postgres_data`.
+> Ne renommez pas le dossier du projet — Compose en dérive les noms de volumes ; un
+> renommage rendrait orphelin votre `postgres_data` existant.
 
 ---
 
 ## pgAdmin
 
-Open http://localhost:5050 and log in with `admin@admin.com` / `admin`. The `scoring_db`
-server is pre-registered (`pgadmin/servers.json`); on first connect enter the database
-password `scoring_pass` (pgAdmin offers to save it).
+Ouvrez http://localhost:5050 et connectez-vous avec `admin@admin.com` / `admin`. Le
+serveur `scoring_db` est pré-enregistré (`pgadmin/servers.json`) ; à la première connexion,
+saisissez le mot de passe de la base `scoring_pass` (pgAdmin propose de le mémoriser).
 
 ---
 
-## Troubleshooting
+## Dépannage
 
-| Symptom | Likely cause / fix |
+| Symptôme | Cause probable / solution |
 |---------|--------------------|
-| `curl localhost:8080` refused for a while after `up` | Backend still starting (first run downloads Maven deps — minutes). Watch `docker compose logs -f backend`. |
-| Backend exits / Flyway error on start | Migration checksum mismatch. In dev, `clean-on-validation-error` rebuilds the DB; if it persists, `docker compose down -v` (⚠️ wipes data) and start fresh. |
-| Frontend can't reach the API | Confirm the backend is up on `:8080`; the frontend must call `localhost`, not `backend`. |
-| `port is already allocated` | Another process uses 4200/8080/8000/5432/5050. Stop it or change the published port in `docker-compose.yml`. |
-| ML service unhealthy at first | Model + SHAP explainer load takes a few seconds (healthcheck has a start-period grace window). |
-| Backend code change not applied | Run `docker compose exec backend mvn compile` (DevTools restarts after). |
-| Docker daemon not reachable | Start Docker Desktop and wait for the engine before `docker compose up`. |
+| `curl localhost:8080` refusé pendant un moment après `up` | Le backend démarre encore (le premier lancement télécharge les dépendances Maven — plusieurs minutes). Surveillez `docker compose logs -f backend`. |
+| Le backend s'arrête / erreur Flyway au démarrage | Incohérence de checksum de migration. En développement, `clean-on-validation-error` reconstruit la base ; si le problème persiste, `docker compose down -v` (⚠️ efface les données) puis repartez de zéro. |
+| Le frontend n'atteint pas l'API | Vérifiez que le backend est bien démarré sur `:8080` ; le frontend doit appeler `localhost`, pas `backend`. |
+| `port is already allocated` | Un autre processus utilise 4200/8080/8000/5432/5050. Arrêtez-le ou changez le port publié dans `docker-compose.yml`. |
+| Le service ML « unhealthy » au début | Le chargement du modèle + de l'explainer SHAP prend quelques secondes (le healthcheck dispose d'une période de grâce au démarrage). |
+| Un changement de code backend n'est pas pris en compte | Lancez `docker compose exec backend mvn compile` (DevTools redémarre ensuite). |
+| Démon Docker injoignable | Démarrez Docker Desktop et attendez le moteur avant `docker compose up`. |

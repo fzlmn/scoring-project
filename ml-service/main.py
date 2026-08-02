@@ -2,7 +2,7 @@
 main.py — Service ML (FastAPI) v4.0
 Application Intelligente de Scoring Client
 Orus Services — Salafin, Bank of Africa
-PFE 2025–2026 — Fatima Zahra Ait Lamine
+PFA 2025–2026 — Fatima Zahra Ait Lamine
 
 Pipeline de production (rebuild 2026, phases 1-6 validées) :
 

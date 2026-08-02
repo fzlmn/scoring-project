@@ -1,47 +1,52 @@
-# OScore — Machine Learning Service
+# OScore — Service de Machine Learning
 
-FastAPI micro-service that scores **Credit Risk** for the **OScore** platform. It turns a
-client's financial profile into a **calibrated probability of default (PD)**, a risk
-level, an explainable set of **SHAP** factors, and a French-language narration.
+Micro-service FastAPI qui évalue le **risque de crédit** pour la plateforme **OScore**. Il
+transforme le profil financier d'un client en une **probabilité de défaut (PD) calibrée**,
+un niveau de risque, un ensemble explicable de facteurs **SHAP** et une narration en
+français.
 
-> Part of the OScore monorepo — see the [root README](../README.md). The backend calls
-> this service at scoring time (`POST /predict`); it never talks to the browser directly.
+> Fait partie du mono-dépôt OScore — voir le [README racine](../README.md). Le backend
+> appelle ce service au moment du scoring (`POST /predict`) ; il ne communique jamais
+> directement avec le navigateur.
 
-## Model Overview
+## Présentation du modèle
 
-- **Estimator:** XGBoost with **monotonic constraints** (so the model's response to each
-  feature is directionally sensible and defensible).
-- **Calibration:** **isotonic** regression maps the raw XGBoost score to a calibrated PD.
-- **Decision:** an F1-optimal **decision threshold** (≈ `0.2227`) flags *high risk*.
-- **Display bands:** an F2-optimal **surveillance threshold** (≈ `0.1007`) drives the
-  Faible / Moyen / Élevé categorization only — it does **not** affect the model, its
-  calibration, or the binary decision.
-- **Dataset:** *Give Me Some Credit* (Kaggle). Selection and evaluation are documented
-  phase-by-phase in [`docs/`](docs/) (`phase1_dataset_audit` → `phase8_final_validation`).
+- **Estimateur :** XGBoost à **contraintes de monotonie** (afin que la réponse du modèle à
+  chaque variable soit cohérente en direction et défendable).
+- **Calibration :** une régression **isotonique** transforme le score brut de XGBoost en
+  une PD calibrée.
+- **Décision :** un **seuil de décision** F1-optimal (≈ `0.2227`) signale un *risque élevé*.
+- **Bandes d'affichage :** un **seuil de surveillance** F2-optimal (≈ `0.1007`) pilote
+  uniquement la catégorisation Faible / Moyen / Élevé — il n'affecte **ni** le modèle, **ni**
+  sa calibration, **ni** la décision binaire.
+- **Jeu de données :** *Give Me Some Credit* (Kaggle). La sélection et l'évaluation sont
+  documentées phase par phase dans [`docs/`](docs/) (`phase1_dataset_audit` →
+  `phase8_final_validation`).
 
-**Official hold-out test metrics** (single evaluation, phase 4):
+**Métriques officielles sur le jeu de test** (évaluation unique, phase 4) :
 
 | ROC-AUC | PR-AUC | KS | Brier | ECE | F1 @ 0.2227 |
 |:-------:|:------:|:--:|:-----:|:---:|:-----------:|
 | **0.8627** | 0.4060 | 0.5726 | 0.0489 | 0.0030 | 0.4512 |
 
-## Data Preprocessing
+## Prétraitement des données
 
-Implemented in [`src/preprocessing.py`](src/preprocessing.py) (shared by the notebooks
-and the service, so training and inference are identical):
+Implémenté dans [`src/preprocessing.py`](src/preprocessing.py) (partagé par les notebooks
+et le service, si bien que l'entraînement et l'inférence sont identiques) :
 
-1. **`clean_gmsc()`** — semantic cleaning of the raw credit-bureau variables: neutralizes
-   known sentinel/placeholder values and derives **two missingness indicators**
-   (`income_missing`, `delinq_info_missing`).
-2. **Fitted preprocessor** — winsorization and transforms **fitted on the training set
-   only** and embedded inside the model artifact, so no leakage occurs at inference.
+1. **`clean_gmsc()`** — nettoyage sémantique des variables brutes du bureau de crédit :
+   neutralise les valeurs sentinelles / placeholders connues et dérive **deux indicateurs
+   de valeurs manquantes** (`income_missing`, `delinq_info_missing`).
+2. **Préprocesseur ajusté** — winsorisation et transformations **ajustées uniquement sur le
+   jeu d'entraînement** et intégrées dans l'artefact du modèle, de sorte qu'aucune fuite ne
+   se produit à l'inférence.
 
-The model consumes **12 features** (`FEATURE_COLS`): 10 raw variables + 2 computed
-indicators. The request accepts 14 fields for backward compatibility; four legacy
-composite fields (`charges_mensuelles`, `score_retards`, `historique_financier`,
-`nb_credits_total`) are **accepted but ignored** by the production model.
+Le modèle consomme **12 variables** (`FEATURE_COLS`) : 10 variables brutes + 2 indicateurs
+calculés. La requête accepte 14 champs pour compatibilité ascendante ; quatre champs
+composites hérités (`charges_mensuelles`, `score_retards`, `historique_financier`,
+`nb_credits_total`) sont **acceptés mais ignorés** par le modèle de production.
 
-## Inference Pipeline
+## Pipeline d'inférence
 
 ```
 POST /predict  (14-field payload from IaService.java)
@@ -55,24 +60,31 @@ POST /predict  (14-field payload from IaService.java)
    → SHAP factors + French narration
 ```
 
-Startup guards validate that feature order is consistent across the module, the saved
-`feature_cols`, and the XGBoost booster, that monotonic constraints are present, and
-that `0 < surveillance < decision < 1`. The service refuses to start otherwise.
+![Pipeline d'inférence du Machine Learning](../docs/diagrams/ml-inference-pipeline.png)
 
-## SHAP Explanations
+*Figure — Pipeline d'inférence : du payload à 14 champs envoyé par le backend jusqu'à la réponse JSON (PD calibrée, niveau de risque, décision, facteurs SHAP et narration en français).*
 
-- A `shap.TreeExplainer` is built once on the trained booster.
-- For each prediction, SHAP values are computed on the preprocessed row; the **top
-  factors** (by absolute contribution) are ranked and returned as structured objects:
-  `feature_name`, `label` (French), `valeur` (formatted), `shap_value` (signed,
-  log-odds), `direction` (`true` = pushes toward default), `ordre_importance`.
-- `generer_narration()` turns those factors into a readable French narration tailored to
-  the risk level. Factors and narration are persisted by the backend with the Score.
+Des garde-fous au démarrage vérifient que l'ordre des variables est cohérent entre le
+module, le fichier `feature_cols` sauvegardé et le booster XGBoost, que les contraintes de
+monotonie sont présentes, et que `0 < surveillance < decision < 1`. À défaut, le service
+refuse de démarrer.
 
-## API Endpoints
+## Explications SHAP
+
+- Un `shap.TreeExplainer` est construit une seule fois sur le booster entraîné.
+- Pour chaque prédiction, les valeurs SHAP sont calculées sur la ligne prétraitée ; les
+  **principaux facteurs** (par contribution absolue) sont classés et renvoyés sous forme
+  d'objets structurés : `feature_name`, `label` (français), `valeur` (formatée),
+  `shap_value` (signée, en log-odds), `direction` (`true` = pousse vers le défaut),
+  `ordre_importance`.
+- `generer_narration()` transforme ces facteurs en une narration française lisible, adaptée
+  au niveau de risque. Les facteurs et la narration sont persistés par le backend avec le
+  Score.
+
+## Points d'entrée de l'API
 
 ### `GET /health`
-Returns model metadata and thresholds:
+Renvoie les métadonnées du modèle et les seuils :
 
 ```json
 {
@@ -87,50 +99,50 @@ Returns model metadata and thresholds:
 ```
 
 ### `POST /predict`
-**Request** (14 fields; only the 10 raw variables are used):
+**Requête** (14 champs ; seules les 10 variables brutes sont utilisées) :
 `RevolvingUtilizationOfUnsecuredLines`, `age`, `NumberOfTime30-59DaysPastDueNotWorse`,
 `DebtRatio`, `MonthlyIncome`, `NumberOfOpenCreditLinesAndLoans`,
 `NumberOfTimes90DaysLate`, `NumberRealEstateLoansOrLines`,
-`NumberOfTime60-89DaysPastDueNotWorse`, `NumberOfDependents` (+ 4 ignored legacy fields).
+`NumberOfTime60-89DaysPastDueNotWorse`, `NumberOfDependents` (+ 4 champs hérités ignorés).
 
-**Response:**
+**Réponse :**
 
-| Field | Meaning |
+| Champ | Signification |
 |-------|---------|
-| `score` | calibrated PD × 100 (e.g. `12` = 12 % default probability) |
+| `score` | PD calibrée × 100 (par ex. `12` = 12 % de probabilité de défaut) |
 | `niveau_risque` | `FAIBLE` / `MOYEN` / `ELEVE` |
-| `narration` | French natural-language explanation |
-| `facteurs` | ranked SHAP factors (see above) |
-| `probabilite_brute` | raw XGBoost output before calibration |
-| `probabilite_calibree` | calibrated PD |
-| `seuil_decision` | high-risk decision threshold |
-| `seuil_surveillance` | watch-list threshold |
+| `narration` | Explication en langage naturel (français) |
+| `facteurs` | Facteurs SHAP classés (voir ci-dessus) |
+| `probabilite_brute` | Sortie brute de XGBoost avant calibration |
+| `probabilite_calibree` | PD calibrée |
+| `seuil_decision` | Seuil de décision « risque élevé » |
+| `seuil_surveillance` | Seuil de surveillance (watch-list) |
 | `decision` | `RISQUE_ELEVE` / `ACCEPTE` |
-| `version_modele` | model version (from training metadata) |
+| `version_modele` | Version du modèle (issue des métadonnées d'entraînement) |
 
-## Training Artifacts
+## Artefacts d'entraînement
 
-Generated by the notebooks into `models/` (**git-ignored** — large binaries). The
-service loads only the production artifacts:
+Générés par les notebooks dans `models/` (**exclus de Git** — binaires volumineux). Le
+service ne charge que les artefacts de production :
 
-| Artifact | Role | Loaded by service |
+| Artefact | Rôle | Chargé par le service |
 |----------|------|:-----------------:|
-| `model_final.pkl` | `ScoringModel` = embedded preprocessor + constrained XGBoost | ✅ |
-| `calibrator.pkl` | Isotonic calibrator (raw PD → calibrated PD) | ✅ |
-| `decision_threshold.pkl` | Decision threshold ≈ `0.2227` (F1-optimal) | ✅ |
-| `niveau_moyen_threshold.pkl` | Surveillance threshold ≈ `0.1007` (F2-optimal) | ✅ |
-| `feature_cols.pkl` | Ordered feature contract | ✅ |
-| `metadata_final.pkl` | Full traceability: config, seed, versions, CV + test metrics | ✅ |
-| `preprocessor.pkl`, `monotone_constraints.pkl` | Preprocessing / constraint contracts | — |
-| `model_random_forest.pkl`, `model_logistic_regression.pkl` (+ calibrators) | Comparison models (**not deployed**) | — |
+| `model_final.pkl` | `ScoringModel` = préprocesseur intégré + XGBoost contraint | ✅ |
+| `calibrator.pkl` | Calibrateur isotonique (PD brute → PD calibrée) | ✅ |
+| `decision_threshold.pkl` | Seuil de décision ≈ `0.2227` (F1-optimal) | ✅ |
+| `niveau_moyen_threshold.pkl` | Seuil de surveillance ≈ `0.1007` (F2-optimal) | ✅ |
+| `feature_cols.pkl` | Contrat d'ordre des variables | ✅ |
+| `metadata_final.pkl` | Traçabilité complète : configuration, seed, versions, métriques CV + test | ✅ |
+| `preprocessor.pkl`, `monotone_constraints.pkl` | Contrats de prétraitement / de contraintes | — |
+| `model_random_forest.pkl`, `model_logistic_regression.pkl` (+ calibrateurs) | Modèles de comparaison (**non déployés**) | — |
 
-> `model_final.pkl` is a custom object — `src/preprocessing.py` must be importable
-> before unpickling (the service adds `src/` to `sys.path` at startup).
+> `model_final.pkl` est un objet personnalisé — `src/preprocessing.py` doit être importable
+> avant le dépicklage (le service ajoute `src/` au `sys.path` au démarrage).
 
-## Running Locally
+## Exécution en local
 
-Prerequisites: **Python 3.11+**. The trained artifacts in `models/` must be present
-(reproduce them from the notebooks, or copy an existing `models/` folder).
+Prérequis : **Python 3.11+**. Les artefacts entraînés dans `models/` doivent être présents
+(reproduisez-les depuis les notebooks, ou copiez un dossier `models/` existant).
 
 ```bash
 # from ml-service/
@@ -142,11 +154,11 @@ curl http://localhost:8000/health
 python tests/test_api_e2e.py            # end-to-end API tests
 ```
 
-### Reproducing the pipeline (optional)
+### Reproduire le pipeline (optionnel)
 
-The dataset is **not** versioned. Download the Kaggle
-[Give Me Some Credit](https://www.kaggle.com/c/GiveMeSomeCredit/data) files into `data/`,
-then run the notebooks **in order** (each feeds the next):
+Le jeu de données **n'est pas** versionné. Téléchargez les fichiers Kaggle
+[Give Me Some Credit](https://www.kaggle.com/c/GiveMeSomeCredit/data) dans `data/`, puis
+exécutez les notebooks **dans l'ordre** (chacun alimente le suivant) :
 
 ```bash
 pip install -r requirements.txt -r requirements-notebooks.txt
@@ -155,11 +167,11 @@ jupyter nbconvert --to notebook --execute --inplace \
     notebooks/03_training.ipynb notebooks/04_evaluation.ipynb notebooks/05_export.ipynb
 ```
 
-Global seed = 42; notebook 03 (5-fold CV × 3 models) takes ~25 min. `archive_v1/` holds
-the previous pipeline for historical reference (not executable).
+Seed global = 42 ; le notebook 03 (CV 5-fold × 3 modèles) prend ~25 min. `archive_v1/`
+conserve le pipeline précédent à titre de référence historique (non exécutable).
 
-## Python Dependencies
+## Dépendances Python
 
-Service (`requirements.txt`): `fastapi`, `uvicorn[standard]`, `pydantic`, `numpy`,
-`pandas`, `scikit-learn`, `xgboost`, `shap`. Notebook/test extras live in
-`requirements-notebooks.txt`.
+Service (`requirements.txt`) : `fastapi`, `uvicorn[standard]`, `pydantic`, `numpy`,
+`pandas`, `scikit-learn`, `xgboost`, `shap`. Les extras pour les notebooks/tests se
+trouvent dans `requirements-notebooks.txt`.
